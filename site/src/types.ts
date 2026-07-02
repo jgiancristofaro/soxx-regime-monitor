@@ -43,6 +43,13 @@ export interface Trade {
   reason: string;
 }
 
+export interface HistoryEntry {
+  date: string;
+  state: StateMachine;
+  price: number | null;
+  reason: string;
+}
+
 export interface ChecklistItem {
   id: string;
   label: string;
@@ -77,6 +84,7 @@ export interface SignalData {
   today: TodaySignals;
   bands: Band[];
   trades: Trade[];
+  history: HistoryEntry[];
   checklist: ChecklistItem[];
   series: Series;
   events: Event[];

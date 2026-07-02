@@ -322,8 +322,61 @@ def compute_signals(df: pd.DataFrame, manual: dict | None = None) -> dict:
         except Exception:
             return None
 
-    # Determine "since" date for current state
-    state_since = trades[-1]["date"] if trades else df_ytd.index[0].strftime("%Y-%m-%d")
+    # Build history: all state transitions for the dashboard table.
+    # Each band becomes one history entry. Trade-driven transitions (EXIT/REENTER)
+    # use the trade's date+price (one day before the new band starts); non-trade
+    # transitions use the band's own start date+price.
+    ytd_date_strs = [d.strftime("%Y-%m-%d") for d in df_ytd.index]
+    close_by_date = dict(zip(ytd_date_strs, [round(float(v), 2) for v in df_ytd["close"].values]))
+    trade_by_prev_end = {t["date"]: t for t in trades}
+
+    history: list[dict] = []
+    for i, band in enumerate(bands):
+        band_date = band["start"]
+        band_state = band["state"]
+        price = close_by_date.get(band_date)
+
+        if band_state == WARMUP:
+            if i == 0:
+                history.append({"date": band_date, "state": band_state, "price": price, "reason": "session start"})
+            continue
+
+        prev_end = bands[i - 1]["end"] if i > 0 else None
+        trade = trade_by_prev_end.get(prev_end) if prev_end else None
+
+        if trade:
+            # Use the trade's date/price — it precedes the band start by one session.
+            history.append({
+                "date": trade["date"],
+                "state": band_state,
+                "price": trade["price"],
+                "reason": trade["reason"],
+            })
+        else:
+            prev_band_state = bands[i - 1]["state"] if i > 0 else None
+            if band_state == RISK_ON:
+                if prev_band_state == WARMUP:
+                    reason = "warmup complete"
+                elif prev_band_state == MONITOR:
+                    reason = "disarm"
+                elif prev_band_state == ACCUM:
+                    reason = "accumulation ended"
+                else:
+                    reason = "—"
+            elif band_state == MONITOR:
+                reason = "distribution signal"
+            elif band_state == ACCUM:
+                reason = "accumulation overlay"
+            else:
+                reason = "—"
+            history.append({"date": band_date, "state": band_state, "price": price, "reason": reason})
+
+    history.sort(key=lambda x: x["date"])
+
+    # Derive state_since from history (handles ACCUM overlay and non-trade re-entries)
+    current_eff_state = ACCUM if last_accum else last_state
+    current_entry = next((h for h in reversed(history) if h["state"] == current_eff_state), None)
+    state_since = current_entry["date"] if current_entry else df_ytd.index[0].strftime("%Y-%m-%d")
 
     return {
         "last_session": df_full.index[-1].strftime("%Y-%m-%d"),
@@ -364,6 +417,7 @@ def compute_signals(df: pd.DataFrame, manual: dict | None = None) -> dict:
         },
         "bands": bands,
         "trades": trades,
+        "history": history,
         "series": {
             "dates": [d.strftime("%Y-%m-%d") for d in df_ytd.index],
             "close": [_safe(v, 2) for v in df_ytd["close"]],

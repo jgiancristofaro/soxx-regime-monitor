@@ -1,5 +1,7 @@
 import type { StateMachine, CheckStatus } from './types';
 
+export const STATE_DARK_TEXT = new Set<StateMachine>(['MONITOR']);
+
 export const STATE_COLOR: Record<StateMachine, string> = {
   RISK_ON:  '#22c55e',
   MONITOR:  '#f59e0b',

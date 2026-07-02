@@ -1,5 +1,5 @@
 import type { SignalData } from './types';
-import { STATE_COLOR, STATE_LABEL, fmtDate, fmtPct } from './theme';
+import { STATE_COLOR, STATE_LABEL, STATE_DARK_TEXT, fmtDate, fmtPct } from './theme';
 
 function setText(id: string, text: string): HTMLElement {
   const el = document.getElementById(id)!;
@@ -15,7 +15,7 @@ export function renderStatePanel(data: SignalData): void {
   const badge = document.getElementById('state-badge')!;
   badge.textContent = label;
   badge.style.backgroundColor = color;
-  badge.style.color = state.machine === 'MONITOR' ? '#000' : '#fff';
+  badge.style.color = STATE_DARK_TEXT.has(state.machine) ? '#000' : '#fff';
 
   setText('last-session', 'Session: ' + fmtDate(data.last_session));
 
@@ -123,35 +123,53 @@ export function renderTradesTable(data: SignalData): void {
   const tbody = document.getElementById('trades-tbody')!;
   tbody.textContent = '';
 
-  if (data.trades.length === 0) {
+  const history = data.history ?? [];
+
+  if (history.length === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
     td.colSpan = 4;
-    td.textContent = 'No trades this year';
+    td.textContent = 'No history this year';
     td.style.cssText = 'text-align:center;color:#6b7280';
     tr.appendChild(td);
     tbody.appendChild(tr);
     return;
   }
 
-  for (const trade of [...data.trades].reverse()) {
-    const isExit = trade.action === 'EXIT';
-    const color = isExit ? STATE_COLOR.EXIT : STATE_COLOR.RISK_ON;
+  for (const entry of [...history].reverse()) {
+    const color = STATE_COLOR[entry.state];
+    const label = STATE_LABEL[entry.state];
     const tr = document.createElement('tr');
 
-    const cells: Array<[string, string?]> = [
-      [fmtDate(trade.date)],
-      [isExit ? 'EXIT' : 'REENTER', color],
-      ['$' + trade.price.toFixed(2)],
-      [trade.reason],
-    ];
+    // State cell: small colored chip
+    const dateTd = document.createElement('td');
+    dateTd.textContent = fmtDate(entry.date);
+    tr.appendChild(dateTd);
 
-    for (const [text, cellColor] of cells) {
-      const td = document.createElement('td');
-      td.textContent = text;
-      if (cellColor) { td.style.color = cellColor; td.style.fontWeight = '600'; }
-      tr.appendChild(td);
-    }
+    const stateTd = document.createElement('td');
+    const chip = document.createElement('span');
+    chip.textContent = label;
+    chip.style.cssText = [
+      `background:${color}`,
+      `color:${STATE_DARK_TEXT.has(entry.state) ? '#000' : '#fff'}`,
+      'font-size:0.75rem',
+      'font-weight:700',
+      'padding:0.15em 0.55em',
+      'border-radius:4px',
+      'letter-spacing:0.04em',
+      'white-space:nowrap',
+    ].join(';');
+    stateTd.appendChild(chip);
+    tr.appendChild(stateTd);
+
+    const priceTd = document.createElement('td');
+    priceTd.textContent = entry.price != null ? '$' + entry.price.toFixed(2) : '—';
+    tr.appendChild(priceTd);
+
+    const reasonTd = document.createElement('td');
+    reasonTd.textContent = entry.reason;
+    tr.appendChild(reasonTd);
+
     tbody.appendChild(tr);
   }
 }
