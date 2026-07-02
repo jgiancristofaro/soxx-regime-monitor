@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Methodology — SOXX Regime Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f1117;
+      color: #e6edf3;
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.7;
+      padding: 2rem 1.5rem 4rem;
+    }
+    .content { max-width: 760px; margin: 0 auto; }
+    nav { margin-bottom: 2rem; }
+    nav a { color: #38bdf8; text-decoration: none; font-size: 0.9rem; }
+    nav a:hover { text-decoration: underline; }
+    h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem; }
+    h2 { font-size: 1.15rem; font-weight: 700; margin: 2rem 0 0.5rem; color: #38bdf8; }
+    h3 { font-size: 0.95rem; font-weight: 600; margin: 1.25rem 0 0.3rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; }
+    p { margin: 0.6rem 0; color: #d1d5db; }
+    ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; color: #d1d5db; }
+    li { margin: 0.3rem 0; }
+    code {
+      background: #1f2937;
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.88em;
+      color: #86efac;
+    }
+    pre {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin: 0.75rem 0;
+    }
+    pre code { background: none; padding: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.75rem 0;
+      font-size: 0.88rem;
+    }
+    th { text-align: left; padding: 0.5rem 0.75rem; color: #9ca3af; border-bottom: 1px solid #30363d; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1f2937; color: #d1d5db; }
+    .note { background: #1c2a1c; border-left: 3px solid #22c55e; padding: 0.75rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+<div class="content">
+
+<nav><a href="./">← Back to Dashboard</a></nav>
+
+<h1>SOXX Regime Monitor — Methodology</h1>
+<p>This page documents the signal construction, state machine rules, and backtest assumptions underlying the dashboard.</p>
+
+<h2>1. Overview</h2>
+<p>The monitor tracks a <strong>return-decomposition signal</strong> on SOXX (iShares Semiconductor ETF). Each daily return is split into:</p>
+<ul>
+  <li><strong>Overnight (on)</strong> = log(open<sub>t</sub> / close<sub>t-1</sub>) — retail/news-driven gap</li>
+  <li><strong>Intraday (id)</strong> = log(close<sub>t</sub> / open<sub>t</sub>) — institutional intraday flow</li>
+</ul>
+<p>A 20-session rolling sum of each gives <code>on20</code> and <code>id20</code>. Persistent negative <code>id20</code> while <code>on20</code> stays positive signals distribution (institutions selling into overnight strength). This divergence precedes drawdowns.</p>
+
+<h2>2. Key Signals</h2>
+<table>
+  <tr><th>Signal</th><th>Formula</th><th>Interpretation</th></tr>
+  <tr><td><code>id20</code></td><td>Σ id<sub>t</sub> over 20 sessions</td><td>Decision series; negative = distribution</td></tr>
+  <tr><td><code>on20</code></td><td>Σ on<sub>t</sub> over 20 sessions</td><td>Overnight bid; fading confirms divergence</td></tr>
+  <tr><td><code>ret20</code></td><td>Σ log-return over 20 sessions</td><td>Total trend; used in ARM/ACC conditions</td></tr>
+  <tr><td><code>rv20</code></td><td>Annualised 20-day realised vol</td><td>Position sizing (full size below 50%)</td></tr>
+  <tr><td><code>vrp</code></td><td>iv30 − rv20</td><td>Variance risk premium; negative = options cheap</td></tr>
+</table>
+
+<h2>3. State Machine</h2>
+<p>The system operates in five states:</p>
+<table>
+  <tr><th>State</th><th>Colour</th><th>Meaning</th></tr>
+  <tr><td>WARMUP</td><td style="color:#6b7280">■ Gray</td><td>First 20 sessions of year — insufficient history</td></tr>
+  <tr><td>RISK_ON</td><td style="color:#22c55e">■ Green</td><td>Fully invested; no distribution signal</td></tr>
+  <tr><td>ARMED</td><td style="color:#f59e0b">■ Amber</td><td>Distribution detected; monitoring for exit trigger</td></tr>
+  <tr><td>FIRED</td><td style="color:#ef4444">■ Red</td><td>Flat / defensive; awaiting re-entry conditions</td></tr>
+  <tr><td>ACCUM</td><td style="color:#3b82f6">■ Blue</td><td>Overlay: price weak but intraday flow positive — stay invested</td></tr>
+</table>
+
+<h3>3.1 Arm Condition (RISK_ON → ARMED)</h3>
+<p>Either of:</p>
+<ul>
+  <li><strong>DIV arm:</strong> <code>id20 &lt; 0</code> AND <code>ret20 &gt; +2%</code> (distribution while trend still up)</li>
+  <li><strong>ABS arm:</strong> <code>id20 &lt; −3%</code> (extreme intraday selling regardless of trend)</li>
+</ul>
+<p>Arm condition must be true at open; does not fire during ACCUM.</p>
+
+<h3>3.2 Exit Trigger (ARMED → FIRED)</h3>
+<p><strong>Exec-into-strength:</strong> <code>id<sub>t</sub> &gt; +1%</code> OR <code>ret<sub>t</sub> &gt; +1.5%</code> while armed condition is still true.</p>
+<p><strong>Same-day arm+exit:</strong> if arm and exit conditions both trigger on the same session, exit fires immediately (ARMED band shown for that day only).</p>
+<p><strong>Escape valve:</strong> after 3 sessions armed with no strength day AND close &lt; MA20, exit anyway.</p>
+
+<h3>3.3 Disarm (ARMED → RISK_ON, no trade)</h3>
+<p>If the arm condition clears (reverses) before an exit executes → cancel, no trade. This takes priority over exec-into-strength on the day the condition clears.</p>
+
+<h3>3.4 Accumulation Override (RISK_ON + ACCUM overlay)</h3>
+<p><code>id20 &gt; +2%</code> AND <code>ret20 &lt; −2%</code> — price falling but institutions buying intraday. Remain invested; arm condition does not fire during ACCUM.</p>
+
+<h3>3.5 Re-entry (FIRED → RISK_ON)</h3>
+<p>Any of:</p>
+<ul>
+  <li><strong>Disarm:</strong> arm condition clears while FIRED → immediate re-entry</li>
+  <li><strong>Accumulation flip:</strong> acc condition triggers while FIRED → re-entry</li>
+  <li><strong>MA20 recovery:</strong> 2 consecutive sessions above MA20 while <code>id20 &gt; 0</code></li>
+</ul>
+
+<h2>4. Position Sizing</h2>
+<p>Suggested size is scaled by realised volatility: <code>size = min(1, 0.50 / rv20)</code> when RISK_ON. Full position only when vol &lt; 50% annualised. FIRED = 0%.</p>
+
+<h2>5. Backtest Assumptions</h2>
+<ul>
+  <li>YTD start = first trading session of Jan 2026; WARMUP = first 20 sessions</li>
+  <li>State machine resets each Jan 1</li>
+  <li>Equity curve: 1× strategy (exit → cash earning 0%), vs 1× B&amp;H</li>
+  <li>No slippage, commissions, or borrowing cost modelled</li>
+  <li>Historical window: 420 calendar days for rolling computations</li>
+</ul>
+
+<h2>6. Data Sources</h2>
+<p>OHLCV data: yfinance → stooq → stockanalysis (fallback chain). Updated daily via GitHub Actions at 22:15 UTC on weekdays. IV30 and P/C OI are entered manually in <code>data/manual.json</code>.</p>
+
+<div class="note">
+  <strong>Disclaimer:</strong> This is a personal research tool, not investment advice. Past performance of any regime signal does not guarantee future results.
+</div>
+
+</div>
+</body>
+</html>

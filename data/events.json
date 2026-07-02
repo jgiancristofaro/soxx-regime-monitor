@@ -1,0 +1,10 @@
+[
+  {"date": "2026-02-04", "label": "1st dist flag", "text": "First distribution day flag — id20 crosses below 0 while ret20 > +2%"},
+  {"date": "2026-03-09", "label": "Accum begins", "text": "Accumulation regime begins: on20 −12.5%, id20 +7.1% — institutions buying into the decline"},
+  {"date": "2026-06-03", "label": "AVGO guidance", "text": "Broadcom (AVGO) earnings + guidance after market close — initial catalyst"},
+  {"date": "2026-06-05", "label": "−10.4% crash", "text": "Single-day −10.44% crash; turbulence z-score ~3.7. Distribution day #1 in the June cluster"},
+  {"date": "2026-06-18", "label": "EXIT $639", "text": "System fires EXIT at $639.45 — exec-into-strength on intraday +1%+ move"},
+  {"date": "2026-06-22", "label": "ATH $655 / id20 neg", "text": "All-time high $655.01 — id20 turns negative on the ATH; on20 peaked at +25.4%"},
+  {"date": "2026-06-26", "label": "Korea capex", "text": "Korea semiconductor capex announcements — SK Hynix $29.4B US listing added paper supply"},
+  {"date": "2026-07-01", "label": "−6.4% / Burry short", "text": "−6.4% day; Michael Burry SOXX short disclosed. id20 = −6.5%, on20 = +7.8%"}
+]

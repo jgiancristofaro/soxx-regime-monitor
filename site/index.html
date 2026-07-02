@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Daily regime monitor for the SOXX semiconductor ETF — overnight vs intraday return decomposition signal." />
+  <title>SOXX Regime Monitor</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>SOXX Regime Monitor</h1>
+    <span id="state-badge">--</span>
+    <span id="last-session"></span>
+  </header>
+
+  <div id="load-error" class="alert alert-error" style="display:none"></div>
+
+  <div id="accum-overlay" class="alert alert-warn" style="display:none">
+    ACCUM overlay active — price weakness while intraday flow holds positive; remain invested.
+  </div>
+
+  <div id="stale-warning" class="alert alert-warn" style="display:none">
+    Data may be stale — live fetch failed, showing last committed snapshot.
+  </div>
+
+  <div class="main-grid">
+
+    <!-- Left column: state + checklist + metrics -->
+    <aside class="left-col">
+
+      <div class="card">
+        <h2>Current State</h2>
+        <div id="state-name">--</div>
+        <span id="state-since"></span>
+        <span id="position-size"></span>
+        <div class="price-row">
+          <span id="today-price"></span>
+          <span id="day-return"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Signal Checklist</h2>
+        <div id="checklist"></div>
+      </div>
+
+      <div class="card">
+        <h2>Key Metrics</h2>
+        <div id="metric-grid"></div>
+      </div>
+
+    </aside>
+
+    <!-- Right column: charts -->
+    <section class="chart-col">
+
+      <div class="card">
+        <h2>id20 &amp; on20 — 20-Day Intraday &amp; Overnight Streams</h2>
+        <div class="chart-wrap">
+          <canvas id="signal-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Equity Curve — Strategy vs Buy &amp; Hold (YTD)</h2>
+        <div class="chart-wrap">
+          <canvas id="equity-chart"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- Trades table -->
+  <section class="trades-section card" style="margin-top:1rem">
+    <h2>YTD Trade History</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Action</th>
+          <th>Price</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody id="trades-tbody"></tbody>
+    </table>
+  </section>
+
+  <footer>
+    <a id="method-link" href="./methodology.html">Methodology</a>
+    <a href="https://github.com/jgiancristofaro/soxx-regime-monitor" target="_blank" rel="noopener">GitHub</a>
+    <span id="last-run"></span>
+  </footer>
+
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
