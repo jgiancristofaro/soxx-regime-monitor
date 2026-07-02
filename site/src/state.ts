@@ -40,6 +40,21 @@ export function renderStatePanel(data: SignalData): void {
   if (data.data_stale) {
     document.getElementById('stale-warning')!.style.display = '';
   }
+
+  // "Modes split" badge: shown when Mode A and Mode B disagree
+  const splitBanner = document.getElementById('modes-split-banner');
+  if (splitBanner) {
+    const a = data.state.arm_mode_a ?? false;
+    const b = data.state.arm_mode_b ?? false;
+    if (a !== b) {
+      splitBanner.textContent = a
+        ? 'Absolute rule armed, relative rule not — lower confidence signal'
+        : 'Relative rule armed, absolute rule not — lower confidence signal';
+      splitBanner.style.display = '';
+    } else {
+      splitBanner.style.display = 'none';
+    }
+  }
 }
 
 export function renderChecklist(data: SignalData): void {
@@ -48,9 +63,17 @@ export function renderChecklist(data: SignalData): void {
 
   for (const item of data.checklist) {
     let display: string;
-    if (item.fmt === 'pct0') display = fmtPct(item.value, 0);
-    else if (item.fmt === 'pct1') display = fmtPct(item.value, 1);
-    else display = (item.value >= 0 ? '+' : '') + item.value.toFixed(2);
+    if (item.value === null) {
+      display = 'n/a';
+    } else if (item.fmt === 'pct0') {
+      display = fmtPct(item.value, 0);
+    } else if (item.fmt === 'pct1') {
+      display = fmtPct(item.value, 1);
+    } else if (item.fmt === 'z') {
+      display = (item.value >= 0 ? '+' : '') + item.value.toFixed(2) + 'σ';
+    } else {
+      display = (item.value >= 0 ? '+' : '') + item.value.toFixed(2);
+    }
 
     const statusColor = item.status === 'green' ? '#22c55e'
       : item.status === 'amber' ? '#f59e0b'
@@ -93,11 +116,12 @@ function renderMetricRows(data: SignalData): void {
   const today = data.today;
 
   const metrics: Array<[string, string]> = [
-    ['RSI 14', today.rsi14.toFixed(1)],
-    ['MA20',   '$' + today.ma20.toFixed(0)],
-    ['MA50',   '$' + today.ma50.toFixed(0)],
-    ['RV20',   fmtPct(today.rv20, 0)],
-    ['Turb',   today.turb.toFixed(2)],
+    ['RSI 14',  today.rsi14.toFixed(1)],
+    ['MA20',    '$' + today.ma20.toFixed(0)],
+    ['MA50',    '$' + today.ma50.toFixed(0)],
+    ['RV20',    fmtPct(today.rv20, 0)],
+    ['RV20 p90', today.rv20_p90 != null ? fmtPct(today.rv20_p90, 0) : 'n/a'],
+    ['Turb',    today.turb.toFixed(2)],
     ['Dist-20', today.dist20 + 'd'],
   ];
 

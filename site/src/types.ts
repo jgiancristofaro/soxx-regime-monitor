@@ -9,6 +9,8 @@ export interface StateInfo {
   position_multiplier: number;
   suggested_size: number;
   short_permitted: boolean;
+  arm_mode_a: boolean;
+  arm_mode_b: boolean;
 }
 
 export interface TodaySignals {
@@ -17,11 +19,13 @@ export interface TodaySignals {
   id20: number;
   on20: number;
   ret20: number;
+  id20_z: number | null;
   ma20: number;
   ma50: number;
   ma200: number;
   rv10: number;
   rv20: number;
+  rv20_p90: number | null;
   turb: number;
   ar1: number;
   rsi14: number;
@@ -53,7 +57,7 @@ export interface HistoryEntry {
 export interface ChecklistItem {
   id: string;
   label: string;
-  value: number;
+  value: number | null;
   fmt: string;
   status: CheckStatus;
   note: string;
@@ -64,6 +68,7 @@ export interface Series {
   close: (number | null)[];
   ma20: (number | null)[];
   id20: (number | null)[];
+  id20_z: (number | null)[];
   on20: (number | null)[];
   rv20: (number | null)[];
   equity_strategy: (number | null)[];

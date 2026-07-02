@@ -204,22 +204,47 @@
 </ul>
 
 <h2>5. Position Sizing</h2>
-<p>Suggested size is scaled by realised volatility: <code>size = min(1, 0.50 / rv20)</code> when RISK_ON. Full position only when vol &lt; 50% annualised. EXIT = 0%.</p>
+<p>Sizing is conditional on volatility regime: <code>size_base = min(1, 0.40 / rv20)</code> only when <code>rv20 &gt; rv20_p90</code> (90th percentile of trailing 252-session rv20); otherwise <code>size_base = 1.0</code>. This scales down only in extreme-vol regimes, preserving full exposure during normal and low-vol melt-ups. Final size = <code>size_base × state_multiplier</code>. EXIT = 0%.</p>
 
 <h2>6. Backtest Assumptions</h2>
 <ul>
   <li>YTD start = first trading session of Jan 2026; WARMUP = first 20 sessions</li>
   <li>State machine resets each Jan 1</li>
   <li>Equity curve: 1× strategy (exit → cash earning 0%), vs 1× B&amp;H</li>
-  <li>No slippage, commissions, or borrowing cost modelled</li>
-  <li>Historical window: 420 calendar days for rolling computations</li>
+  <li>Slippage: 5 bps per side applied on each trade date (net equity)</li>
+  <li>Historical window: 600 calendar days for rolling computations (252-session z-score baseline)</li>
+  <li>Fills at same-session close; position earns from next session</li>
 </ul>
 
 <h2>7. Data Sources</h2>
 <p>OHLCV data: yfinance → stooq → stockanalysis (fallback chain). Updated daily via GitHub Actions at 22:15 UTC on weekdays. IV30 and P/C OI are entered manually in <code>data/manual.json</code>.</p>
 
+<h2>8. Known Failure Modes (Verified)</h2>
+
+<h3>F1 — No gap protection</h3>
+<p>On 2026-06-04 the system was RISK_ON with <code>id20 = +10.9%</code> (near its most bullish reading). The −10.44% June 5 crash arrived with zero warning. The signal detects distribution <em>processes</em>, not exogenous <em>shocks</em>. Nothing in the methodology fixes this; it is unfixable within this signal framework. Do not claim or expect crash or gap protection from this system.</p>
+
+<h3>F2 — Zero-anchor fragility (Mode A)</h3>
+<p>The absolute arm condition (<code>id20 &lt; 0 AND ret20 &gt; +2%</code>) fired on 33 of 128 sessions (26%) in H2-2025, a benign +27% grind. It over-arms in normal regimes because equity intraday returns are structurally below overnight returns (the overnight-drift anomaly). The hybrid rule adds a 60-session collapse gate to Mode A, requiring <code>id20_max60 − id20 ≥ 8%</code> before Mode A fires.</p>
+
+<h3>F3 — Pure z-score arm misses 2026 exit</h3>
+<p>Anchoring entirely to a 252-session z-score (Mode B) is robust across regimes but does not arm on the Jun 9 or Jun 18, 2026 episodes (z = −0.92 and −0.62; the melt-up inflated the baseline). Mode B alone would exit around $625 vs the actual $639.45. Neither mode alone is acceptable; the hybrid rule combines both.</p>
+
+<h3>F4 — ACCUM is unbounded without stops</h3>
+<p>Without invalidation stops, the ACCUM overlay held full exposure through the −15.8% Feb–Mar drawdown. Correct outcome that episode; unacceptable process in a sustained bear market. Stops added: 8% price drawdown from ACCUM activation close, or <code>id20</code> rolling back below +1%.</p>
+
+<h3>F5 — Execution semantics</h3>
+<p>Same-day arm+exit is explicitly supported and occurred on Jun 18, 2026 (armed and exited at $639.45 in one session). Fills are assumed at same-session close (MOC order). In practice: never use market orders in the opening auction; SOXX spreads run 2–5 bps intraday, widest at the bells.</p>
+
+<h3>Additional notes</h3>
+<ul>
+  <li>The escape valve (exit after N sessions armed with no strength day) has never fired in live or backtest data — treat its first activation with suspicion.</li>
+  <li>All thresholds are in-sample choices calibrated on n=3 confirming episodes (Jan–Jul 2026). The hybrid rule is itself a third in-sample iteration. Multi-year (2019–2025) calibration is pending.</li>
+  <li><strong>VRP note:</strong> <code>vrp = iv30 − rv20</code> is a vol-points (practitioner) convention, not variance units. Used only as a hedge-instrument selector, never as a harvesting signal. When hedging with puts: roll at 21–30 DTE, cap annual hedge budget (≤2% of NAV per quarter), and treat 30-day IV as potentially decoupled from short-dated tail pricing in the 0DTE era.</li>
+</ul>
+
 <div class="note">
-  <strong>Disclaimer:</strong> This is a personal research tool, not investment advice. Past performance of any regime signal does not guarantee future results.
+  <strong>Disclaimer:</strong> Research and education only. Not investment advice. Signals are in-sample on n=3 episodes. No warranty.
 </div>
 
 </div>

@@ -148,15 +148,20 @@ Never rely on color alone — always include text labels.
 All constants live at the top of `pipeline/state_machine.py`. Do NOT change them without updating the golden-record tests and documenting the change in WORKLOG.MD.
 
 ```python
-ARM_DIV_ID = 0.00   # MONITOR if id20 < 0 AND ret20 > +2%
+ARM_DIV_ID = 0.00   # Mode A: MONITOR if id20 < 0 AND ret20 > +2%
 ARM_DIV_RET = 0.02
-ARM_ABS_ID = -0.03  # OR id20 < -3%
+ARM_ABS_ID = -0.03  # Mode A: OR id20 < -3%
+ARM_Z = -1.0        # Mode B: id20 z-score threshold (252-session baseline, min 120)
+COLLAPSE_GATE = 0.08 # Mode A gate: id20 must have fallen ≥ 8pts from 60-session max
 ACC_ID = 0.02       # accumulation: id20 > +2% AND ret20 < -2%
 ACC_RET = -0.02
+ACCUM_STOP_PX = 0.08  # invalidate ACCUM if close falls 8% from activation close
+ACCUM_STOP_ID = 0.01  # invalidate ACCUM if id20 < +1%
 EXIT_ID = 0.01      # exec-into-strength: id_t > +1%
 EXIT_DAY = 0.015    # OR ret_t > +1.5%
 ESCAPE_SESSIONS = 3
-DISARM_SESSIONS = 2
+DISARM_SESSIONS = 2  # retained for documentation; disarm is now unconditional
+SLIPPAGE_BPS = 5    # basis points per trade side (applied in backtest)
 REENTER_MA_DAYS = 2
 WARMUP_SESSIONS = 20
 ```

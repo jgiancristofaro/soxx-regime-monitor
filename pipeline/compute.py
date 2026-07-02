@@ -39,7 +39,7 @@ def main():
 
     print("Fetching OHLCV data...")
     try:
-        df = fetch_ohlcv(days=420)
+        df = fetch_ohlcv(days=600)
         df.to_csv(history_path)
         print(f"  Fetched {len(df)} rows, last session: {df.index[-1].date()}")
     except RuntimeError as e:
