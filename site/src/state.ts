@@ -15,7 +15,7 @@ export function renderStatePanel(data: SignalData): void {
   const badge = document.getElementById('state-badge')!;
   badge.textContent = label;
   badge.style.backgroundColor = color;
-  badge.style.color = state.machine === 'ARMED' ? '#000' : '#fff';
+  badge.style.color = state.machine === 'MONITOR' ? '#000' : '#fff';
 
   setText('last-session', 'Session: ' + fmtDate(data.last_session));
 
@@ -26,13 +26,13 @@ export function renderStatePanel(data: SignalData): void {
 
   const posPct = Math.round(state.suggested_size * 100);
   const posEl = setText('position-size', posPct + '% position');
-  posEl.style.color = posPct > 0 ? STATE_COLOR.RISK_ON : STATE_COLOR.FIRED;
+  posEl.style.color = posPct > 0 ? STATE_COLOR.RISK_ON : STATE_COLOR.EXIT;
 
   setText('today-price', '$' + data.today.close.toFixed(2));
 
   const ret = data.today.ret;
   const dayRetEl = setText('day-return', (ret >= 0 ? '+' : '') + fmtPct(ret, 2) + ' today');
-  dayRetEl.style.color = ret >= 0 ? STATE_COLOR.RISK_ON : STATE_COLOR.FIRED;
+  dayRetEl.style.color = ret >= 0 ? STATE_COLOR.RISK_ON : STATE_COLOR.EXIT;
 
   if (data.state.accum_overlay) {
     document.getElementById('accum-overlay')!.style.display = '';
@@ -136,7 +136,7 @@ export function renderTradesTable(data: SignalData): void {
 
   for (const trade of [...data.trades].reverse()) {
     const isExit = trade.action === 'EXIT';
-    const color = isExit ? STATE_COLOR.FIRED : STATE_COLOR.RISK_ON;
+    const color = isExit ? STATE_COLOR.EXIT : STATE_COLOR.RISK_ON;
     const tr = document.createElement('tr');
 
     const cells: Array<[string, string?]> = [
