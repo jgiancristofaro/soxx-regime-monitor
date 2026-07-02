@@ -72,21 +72,21 @@ def _band_state_on(result: dict, date_str: str) -> str | None:
 
 
 def test_jul01_state_fired(result):
-    """System is FIRED (flat) as of Jul 1, 2026."""
-    assert result["state"]["machine"] == "FIRED"
+    """System is OUT (flat) as of Jul 1, 2026."""
+    assert result["state"]["machine"] == "OUT"
     assert result["last_session"] == "2026-07-01"
 
 
 def test_jun22_state_fired(result):
-    """Jun 22 is FIRED: EXIT already happened Jun 18 (system is flat)."""
-    # Note: spec §6.4 says 'state ARMED' on Jun 22, but EXIT fired Jun 18 @639.45
+    """Jun 22 is OUT: EXIT already happened Jun 18 (system is flat)."""
+    # Note: spec §6.4 says 'state MONITOR' on Jun 22, but EXIT fired Jun 18 @639.45
     # (same-day arm+exit). System has been flat since Jun 18.
     state = _band_state_on(result, "2026-06-22")
-    assert state == "FIRED", f"Expected FIRED on 2026-06-22, got: {state}"
+    assert state == "OUT", f"Expected OUT on 2026-06-22, got: {state}"
 
 
 def test_jun09_10_cancel_no_trade(result):
-    """Jun 9-10 ARMED episode cancels without a trade."""
+    """Jun 9-10 MONITOR episode cancels without a trade."""
     trades_jun9_to_17 = [
         t for t in result["trades"]
         if "2026-06-09" <= t["date"] <= "2026-06-17"
@@ -111,7 +111,7 @@ def test_accum_never_coexists_with_exit(result):
 
 
 def test_position_is_zero_on_jul01(result):
-    """Strategy position on 2026-07-01 (FIRED) should be 0."""
+    """Strategy position on 2026-07-01 (OUT) should be 0."""
     assert result["state"]["position_multiplier"] == 0.0
 
 

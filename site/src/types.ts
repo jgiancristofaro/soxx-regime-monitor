@@ -1,4 +1,4 @@
-export type StateMachine = 'RISK_ON' | 'ARMED' | 'FIRED' | 'ACCUM' | 'WARMUP';
+export type StateMachine = 'RISK_ON' | 'MONITOR' | 'OUT' | 'ACCUM' | 'WARMUP';
 export type TradeAction = 'EXIT' | 'REENTER';
 export type CheckStatus = 'green' | 'amber' | 'red' | 'gray';
 

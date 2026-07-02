@@ -1,19 +1,19 @@
 import type { StateMachine, CheckStatus } from './types';
 
 export const STATE_COLOR: Record<StateMachine, string> = {
-  RISK_ON: '#22c55e',
-  ARMED:   '#f59e0b',
-  FIRED:   '#ef4444',
-  ACCUM:   '#3b82f6',
-  WARMUP:  '#6b7280',
+  RISK_ON:  '#22c55e',
+  MONITOR:  '#f59e0b',
+  OUT:      '#ef4444',
+  ACCUM:    '#3b82f6',
+  WARMUP:   '#6b7280',
 };
 
 export const STATE_LABEL: Record<StateMachine, string> = {
-  RISK_ON: 'RISK ON',
-  ARMED:   'ARMED',
-  FIRED:   'FIRED',
-  ACCUM:   'ACCUM',
-  WARMUP:  'WARMUP',
+  RISK_ON:  'RISK ON',
+  MONITOR:  'MONITOR',
+  OUT:      'OUT',
+  ACCUM:    'ACCUM',
+  WARMUP:   'WARMUP',
 };
 
 export const STATUS_COLOR: Record<CheckStatus, string> = {

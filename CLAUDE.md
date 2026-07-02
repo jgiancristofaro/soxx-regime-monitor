@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Public, zero-cost dashboard that computes and displays the SOXX semiconductor ETF regime state machine (RISK-ON / ARMED / FIRED / ACCUMULATION) every trading day. Static site on GitHub Pages, data refreshed via GitHub Actions cron.
+Public, zero-cost dashboard that computes and displays the SOXX semiconductor ETF regime state machine (RISK-ON / MONITOR / OUT / ACCUM) every trading day. Static site on GitHub Pages, data refreshed via GitHub Actions cron.
 
 **Public URL:** `https://jgiancristofaro.github.io/soxx-regime-monitor/`
 **GitHub repo:** `https://github.com/jgiancristofaro/soxx-regime-monitor`
@@ -135,8 +135,8 @@ Use these colors everywhere (chips, bands, status dots):
 |---------|------------------------------|-----------------------------|-------------|
 | RISK_ON | Fully invested               | `rgba(27,175,122,0.10)`     | `#1baf7a`   |
 | ACCUM   | Buy-the-dip regime           | `rgba(42,120,214,0.14)`     | `#2a78d6`   |
-| ARMED   | Distribution flagged         | `rgba(237,161,0,0.14)`      | `#eda100`   |
-| FIRED   | Flat / out of position       | `rgba(237,73,72,0.15)`      | `#e34948`   |
+| MONITOR | Distribution flagged         | `rgba(237,161,0,0.14)`      | `#eda100`   |
+| OUT     | Flat / out of position       | `rgba(237,73,72,0.15)`      | `#e34948`   |
 | WARMUP  | Insufficient window          | `rgba(137,135,129,0.10)`    | `#898781`   |
 
 Never rely on color alone — always include text labels.
@@ -148,7 +148,7 @@ Never rely on color alone — always include text labels.
 All constants live at the top of `pipeline/state_machine.py`. Do NOT change them without updating the golden-record tests and documenting the change in WORKLOG.MD.
 
 ```python
-ARM_DIV_ID = 0.00   # armed if id20 < 0 AND ret20 > +2%
+ARM_DIV_ID = 0.00   # MONITOR if id20 < 0 AND ret20 > +2%
 ARM_DIV_RET = 0.02
 ARM_ABS_ID = -0.03  # OR id20 < -3%
 ACC_ID = 0.02       # accumulation: id20 > +2% AND ret20 < -2%
@@ -169,8 +169,8 @@ WARMUP_SESSIONS = 20
 
 | Date       | Assertion                                                               |
 |------------|-------------------------------------------------------------------------|
-| 2026-06-22 | close 655.01; id20 ≈ −1.5%; on20 ≈ +25.4%; state ARMED                |
-| 2026-07-01 | close 599.70; id20 ≈ −6.5%; on20 ≈ +7.8%; ret20 ≈ +1.9%; state FIRED |
+| 2026-06-22 | close 655.01; id20 ≈ −1.5%; on20 ≈ +25.4%; state OUT (exited Jun 18) |
+| 2026-07-01 | close 599.70; id20 ≈ −6.5%; on20 ≈ +7.8%; ret20 ≈ +1.9%; state OUT  |
 | 2026-06-05 | ret ≈ −10.44%; turb > 3                                                 |
 | 2026-03-13 | on20 ≈ −12.5%; id20 ≈ +7.1%; ACCUM overlay true                        |
 
