@@ -247,6 +247,82 @@
   <strong>Disclaimer:</strong> Research and education only. Not investment advice. Signals are in-sample on n=3 episodes. No warranty.
 </div>
 
+<h2>Appendix A — v3.2 Pressure Test Results</h2>
+<p>The following pressure tests (P1–P6) were run against the Jan–Jul 2026 fixture (n=128 sessions, 3 confirming episodes) as part of the v3.2 change order. Tests V1–V9 are pinned in <code>pipeline/tests/test_state_machine.py</code>.</p>
+
+<h3>P1 — Order-of-Operations Pin</h3>
+<p>Verified that on any given session, the evaluation order is: (1) arm check, (2) exit check, (3) disarm priority over exit. Same-day arm+exit is explicitly supported and occurred on Jun 18, 2026 (exit at $639.45). A deferred-price bug where the exit was incorrectly assigned the Jun 11 price (~$586.93 rather than $639.45) was identified and fixed. Tests V1a–V1c lock the exit date, exit price, and no-trade window (Jun 9–12).</p>
+
+<h3>P2 — on20 Momentum Sizing Tilt</h3>
+<p><code>on20_mom = on20 − on20.shift(5)</code>: the 5-session change in overnight stream. When this turns negative in MONITOR state (threshold: −5%), overnight institutional demand is fading, reinforcing the distribution signal. The tilt multiplies suggested_size by 0.8 (20% reduction). <strong>Hard constraint: on20_mom never enters transition logic.</strong> It is a display and sizing variable only (test V9 enforces this via source inspection). Current reading: −10.8% (fading overnight bid confirmed).</p>
+
+<h3>P3 — Short-Permission Indicator</h3>
+<p>Three conditions must all be true for short permission: (1) close below 50-DMA <em>and</em> volume above 1.5× the 30-day average; (2) id20 &lt; 0; (3) on20 &lt; 0. Currently: condition 2 passes (id20 = −12.2%), conditions 1 and 3 fail. Short not permitted. The nearest actionable line is MA50 at $545 (3.7% below the Jul 2 close of $566).</p>
+
+<h3>P4 — Ensemble Arm (ENSEMBLE_ARM, default OFF)</h3>
+<p>A 2-of-3 majority vote of the hybrid arm condition computed at window lengths N=15, 20, and 25. Against the Jan–Jul 2026 fixture, ENSEMBLE_ARM=True yields a return of ~72.7% vs baseline 72.7% with the same Jun 18 exit date and price. The ensemble adds noise-resistance but does not change outcomes on this sample. Kept as an optional flag (default OFF) pending multi-year calibration. Configuration: <code>ENSEMBLE_ARM = False</code> in <code>state_machine.py</code>.</p>
+
+<h3>P5 — Crash Gate (CRASH_GATE, default OFF)</h3>
+<p>Suppresses the absolute ABS arm (<code>id20 &lt; −3%</code>) when the 20-session drawdown from the rolling high (<code>dd20</code>) is ≤ −10% (i.e., already in a crash). Rationale: arming after a 10%+ collapse produces a knife-edge MONITOR signal that forces an exit at the worst possible price. Against the fixture, CRASH_GATE=True prevents a brief MONITOR signal at the Mar 30, 2026 low (dd20 = −10.3%), allowing participation in the April recovery. YTD return rises from ~72.7% to ~73.0%. Improvement is small on n=1 episode and the threshold is fragile; kept OFF pending multi-year calibration. Configuration: <code>CRASH_GATE = False</code>, <code>CRASH_GATE_DD = −0.10</code>.</p>
+
+<h3>P6 — Real Yield Context (real_chg20)</h3>
+<p><code>real_chg20 = (DGS10 − T10YIE) − (DGS10 − T10YIE).shift(20)</code>: the 20-session change in the real 10-year yield (nominal − breakeven inflation). Sourced from FRED (no API key required). Confirmed useful as a macro <em>context</em> indicator (rising real yields = headwind for growth/tech). <strong>Rejected</strong> as a sizing overlay: high correlation with RV20 means it would double-count the volatility adjustment already in the sizing formula. Remains a display-only field in the checklist and <code>today</code> output.</p>
+
+<h3>Rejected Candidates</h3>
+<table>
+  <tr><th>Candidate</th><th>Tested</th><th>Result</th><th>Disposition</th></tr>
+  <tr>
+    <td>Continuous sizing (size ∝ id20)</td>
+    <td>V8</td>
+    <td>YTD return ≈60.4% vs baseline 72.7% — underperforms by &gt;12pt</td>
+    <td>Rejected — punishes the melt-up phase</td>
+  </tr>
+  <tr>
+    <td>real_chg20 sizing overlay</td>
+    <td>P6</td>
+    <td>High correlation with RV20; adds no independent information</td>
+    <td>Display only, not in sizing</td>
+  </tr>
+  <tr>
+    <td>on20_mom in transition logic</td>
+    <td>V9 (static)</td>
+    <td>N/A — enforced by rule</td>
+    <td>Hard-prohibited; display/sizing only</td>
+  </tr>
+  <tr>
+    <td>ENSEMBLE_ARM as default-ON</td>
+    <td>V6</td>
+    <td>No outcome change on fixture; increases complexity</td>
+    <td>Default OFF pending multi-year calibration</td>
+  </tr>
+  <tr>
+    <td>CRASH_GATE as default-ON</td>
+    <td>V7</td>
+    <td>+0.3pt on 1 episode; knife-edge threshold</td>
+    <td>Default OFF pending multi-year calibration</td>
+  </tr>
+</table>
+
+<h3>Corrected Performance Characterization</h3>
+<p>The in-sample return of ~72.7% (Jan–Jul 2026, fixture) should be interpreted as follows:</p>
+<ul>
+  <li>The fixture spans a single bull-market year with an unusually sharp crash event and fast recovery. This is exactly the scenario the signal was designed for.</li>
+  <li>The buy-and-hold baseline over the same period is approximately 81% (depending on exact start/end dates). The strategy underperforms B&amp;H on the YTD period because the exit occurred at $639 and the Jul 2 close is $566 — i.e., the strategy correctly avoided the drawdown but the period has not yet closed out (the market is still below the exit price).</li>
+  <li>Performance is expressed as equity-curve terminal value (unrealized P&amp;L since exit counts as cash-at-0%), not as closed-trade P&amp;L.</li>
+  <li>There are exactly 3 trades. A 3-trade sample is insufficient for statistical inference about expected performance across regimes. Do not extrapolate.</li>
+</ul>
+
+<h3>Additional Notes from v3.2</h3>
+<ul>
+  <li><strong>EXIT_ID threshold:</strong> The exec-into-strength threshold <code>EXIT_ID = 0.01</code> (+1% intraday) is empirically derived from the Jun 18 data. A lower threshold (e.g., 0.5%) would have exited Jun 10 at ~$595; a higher threshold (2%) would have missed the Jun 18 window. Treat as fragile.</li>
+  <li><strong>Calibration gap:</strong> All constants (ARM_DIV_ID, ARM_Z, COLLAPSE_GATE, EXIT_ID, ACCUM_STOP_PX, etc.) were set or confirmed on n=3 episodes spanning a single regime (post-AI bull market 2025–2026). They have not been walked forward on 2019–2024 data. Pre-2019 SOXX data is sparser and the ETF composition has changed materially. Multi-year calibration is the highest-priority future work.</li>
+  <li><strong>FRED data:</strong> VIXCLS, VXVCLS, DGS10, T10YIE are fetched from the FRED graph CSV API (no key required). vix_slope and real_chg20 are computed from these. If FRED is unavailable, the pipeline continues with null values for these fields — they are context-only and do not affect state machine transitions.</li>
+</ul>
+
+<div class="note">
+  <strong>Disclaimer:</strong> Research and education only. Not investment advice. Signals are in-sample on n=3 episodes. No warranty.
+</div>
+
 </div>
 </body>
 </html>

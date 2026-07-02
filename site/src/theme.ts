@@ -23,6 +23,7 @@ export const STATUS_COLOR: Record<CheckStatus, string> = {
   amber: '#f59e0b',
   red:   '#ef4444',
   gray:  '#6b7280',
+  grey:  '#6b7280',
 };
 
 export function hexAlpha(hex: string, alpha: number): string {

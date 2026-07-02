@@ -164,6 +164,12 @@ DISARM_SESSIONS = 2  # retained for documentation; disarm is now unconditional
 SLIPPAGE_BPS = 5    # basis points per trade side (applied in backtest)
 REENTER_MA_DAYS = 2
 WARMUP_SESSIONS = 20
+# v3.2 additions
+ONMOM_TILT   = -0.05   # on20_mom threshold for sizing tilt in MONITOR (display/sizing only)
+ONMOM_FACTOR = 0.8     # multiply suggested_size by this when on20_mom tilt is active
+ENSEMBLE_ARM = False   # 2-of-3 vote at N=15/20/25 (default OFF; P4)
+CRASH_GATE   = False   # suppress ABS arm when dd20 ≤ CRASH_GATE_DD (default OFF; P5)
+CRASH_GATE_DD = -0.10  # knife-edge; ON only after multi-year calibration
 ```
 
 ---

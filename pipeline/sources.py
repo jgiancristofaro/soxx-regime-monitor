@@ -87,3 +87,33 @@ def load_fixture(path: str) -> pd.DataFrame:
     """Load a local CSV fixture (for tests or stale-data fallback)."""
     df = pd.read_csv(path, parse_dates=["date"]).set_index("date").sort_index()
     return _validate(df[["open", "high", "low", "close", "volume"]], f"fixture:{path}")
+
+
+def fetch_fred_series(series_id: str, days: int = 600) -> pd.Series:
+    """Fetch a single FRED daily series and return a date-indexed float Series.
+
+    Uses the FRED graph CSV API (no API key required).
+    Raises on HTTP/parse error; caller should handle with continue-on-error semantics.
+    Marks stale if latest value is >3 sessions old.
+    """
+    start = (datetime.today() - timedelta(days=days)).strftime("%Y-%m-%d")
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={start}"
+    r = requests.get(url, timeout=20, headers={"Accept": "text/csv, application/csv, */*"})
+    r.raise_for_status()
+    raw = r.content.decode("utf-8", errors="replace")
+    df = pd.read_csv(io.StringIO(raw))
+    df.columns = [c.strip() for c in df.columns]
+    # FRED CSVs use DATE column; find it case-insensitively
+    date_col = next((c for c in df.columns if c.upper() in ("DATE", "OBSERVATION_DATE")), None)
+    val_col = next((c for c in df.columns if c.upper() == series_id.upper()), None)
+    if date_col is None or val_col is None:
+        raise ValueError(f"FRED {series_id}: unexpected columns {list(df.columns)}")
+    df = df.rename(columns={date_col: "date", val_col: "value"})
+    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.set_index("date").sort_index()
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    df = df.dropna(subset=["value"])
+    if df.empty:
+        raise ValueError(f"FRED {series_id}: empty after parsing")
+    return df["value"]

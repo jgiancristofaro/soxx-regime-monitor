@@ -232,6 +232,47 @@ header h1 {
 
 .trades-section tr:last-child td { border-bottom: none; }
 
+/* ── Short-permission indicator ───────────────────────────────────────── */
+.short-perm-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.short-perm-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.short-cond {
+  font-size: 0.78rem;
+  padding: 0.15em 0;
+}
+
+.short-cond.pass { color: #22c55e; }
+.short-cond.fail { color: #6b7280; }
+
+.short-perm-all {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #22c55e;
+  border: 1px solid #22c55e40;
+  border-radius: 4px;
+  padding: 0.3em 0.6em;
+  background: #22c55e0d;
+}
+
+.short-perm-gap {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 /* ── Footer ───────────────────────────────────────────────────────────── */
 footer {
   margin-top: 2rem;

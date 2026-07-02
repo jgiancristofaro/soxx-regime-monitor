@@ -20,7 +20,9 @@ sys.path.insert(0, str(ROOT))
 
 from pipeline.sources import load_fixture
 from pipeline.state_machine import (
-    ARM_Z, COLLAPSE_GATE, compute_signals, _compute_derived
+    ARM_Z, COLLAPSE_GATE, ONMOM_TILT, ONMOM_FACTOR, SLIPPAGE_BPS,
+    compute_signals, _compute_derived, _run_state_machine, _run_backtest,
+    STATE_POS,
 )
 
 
@@ -302,3 +304,164 @@ def test_n8_hybrid_backtest_near_modea(result, result_mode_a):
         f"N8: Expected EXIT on 2026-07-01, got {result['state']['machine']}"
     )
     assert result["state"]["position_multiplier"] == 0.0
+
+
+# ── V1–V9: Change Order v3.2 golden record ───────────────────────────────────
+
+def test_v1_order_of_ops_same_day_arm_exit(result_mode_a):
+    """V1a: Jun 18 arms AND exits in the same session @ 639.45 (not deferred to Jun 22)."""
+    exit_trade = result_mode_a["trades"][2]
+    assert exit_trade["date"] == "2026-06-18"
+    assert exit_trade["price"] == pytest.approx(639.45, abs=0.01)
+
+
+def test_v1_jun11_close_documents_deferred_price(df_full):
+    """V1b: Jun 11 close = 586.93 — documents the deferred-exit variant's Jun 9 price.
+    The deferred variant (evaluating exit next session) would exit here instead;
+    our code correctly disarms without exit, and any CI that expected $655 would fail."""
+    df_d = _compute_derived(df_full.copy())
+    close_jun11 = float(df_d.loc[pd.Timestamp("2026-06-11"), "close"])
+    assert close_jun11 == pytest.approx(586.93, abs=0.01), (
+        f"V1b: Jun 11 close = {close_jun11:.2f}, expected 586.93"
+    )
+    # Also verify Jun 22 close (the Jun 18 deferred-exit variant's price)
+    close_jun22 = float(df_d.loc[pd.Timestamp("2026-06-22"), "close"])
+    assert close_jun22 == pytest.approx(655.01, abs=0.01)
+
+
+def test_v1_no_exit_jun09_to_jun11(result_mode_a):
+    """V1c: No exit trade on Jun 9-11 (disarm episode). Deferred-exit variant fails here."""
+    trade_dates = {t["date"] for t in result_mode_a["trades"]}
+    for d in ["2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12"]:
+        assert d not in trade_dates, f"V1c: unexpected trade on {d}"
+
+
+def test_v2_on20_mom_may15(df_full):
+    """V2: on20_mom 2026-05-15 ≈ -5.0pts (±0.3) — 14 sessions before Jun 5 distribution."""
+    df_d = _compute_derived(df_full.copy())
+    val = float(df_d.loc[pd.Timestamp("2026-05-15"), "on20_mom"])
+    assert val == pytest.approx(-0.050, abs=0.003), (
+        f"V2: on20_mom 2026-05-15 = {val:.4f}, expected ≈ -5.0pts"
+    )
+
+
+def test_v3_on20_mom_jun22(df_full):
+    """V3: on20_mom 2026-06-22 ≈ +16.0pts (±0.5) — overnight surged into the top."""
+    df_d = _compute_derived(df_full.copy())
+    val = float(df_d.loc[pd.Timestamp("2026-06-22"), "on20_mom"])
+    assert val == pytest.approx(0.160, abs=0.005), (
+        f"V3: on20_mom 2026-06-22 = {val:.4f}, expected ≈ +16.0pts"
+    )
+
+
+def test_v4_on20_mom_jul01(df_full):
+    """V4: on20_mom 2026-07-01 ≈ -5.8pts (±0.3) — tilt active on last day."""
+    df_d = _compute_derived(df_full.copy())
+    val = float(df_d.loc[pd.Timestamp("2026-07-01"), "on20_mom"])
+    assert val == pytest.approx(-0.058, abs=0.003), (
+        f"V4: on20_mom 2026-07-01 = {val:.4f}, expected ≈ -5.8pts"
+    )
+
+
+def test_v5_dd20_mar30(df_full):
+    """V5: dd20 2026-03-30 ≈ -10.3% (±0.2) — documents CRASH_GATE_DD knife-edge."""
+    df_d = _compute_derived(df_full.copy())
+    val = float(df_d.loc[pd.Timestamp("2026-03-30"), "dd20"])
+    assert val == pytest.approx(-0.103, abs=0.002), (
+        f"V5: dd20 2026-03-30 = {val:.4f}, expected ≈ -10.3%"
+    )
+
+
+def test_v6_ensemble_arm_return_and_jun18_exit(df_full):
+    """V6: ENSEMBLE_ARM=True — 2026 return close to baseline; Jun 18 exit preserved at 639.45."""
+    df_d = _compute_derived(df_full.copy())
+    ytd = df_d[df_d.index >= pd.Timestamp("2026-01-01")].copy()
+    states, accum, trades = _run_state_machine(ytd, ensemble_arm=True)
+    eq_s, _ = _run_backtest(ytd, states, accum, trades)
+    ret = [v for v in eq_s if v is not None][-1] - 1
+
+    # Return from fixture: ≈ 72.7% (differs from change order which used live data)
+    assert ret == pytest.approx(0.727, abs=0.03), (
+        f"V6: ENSEMBLE_ARM return = {ret:.3f}, expected ≈ 72.7%"
+    )
+    # Jun 18 exit must survive ensemble arm condition
+    jun18_exits = [t for t in trades if t["date"] == "2026-06-18" and t["action"] == "EXIT"]
+    assert len(jun18_exits) == 1, "V6: Jun 18 exit must still occur under ENSEMBLE_ARM"
+    assert jun18_exits[0]["price"] == pytest.approx(639.45, abs=0.01)
+
+
+def test_v7_crash_gate_mar30_suppression(df_full):
+    """V7: CRASH_GATE=True suppresses ABS arm on Mar 30 (dd20=-10.3% <= -10%)."""
+    df_d = _compute_derived(df_full.copy())
+    ytd = df_d[df_d.index >= pd.Timestamp("2026-01-01")].copy()
+
+    # Baseline: Mar 30 should be MONITOR (ABS arm fires, ACCUM stops)
+    states_base, _, _ = _run_state_machine(ytd)
+    idx_mar30 = list(ytd.index.strftime("%Y-%m-%d")).index("2026-03-30")
+    assert states_base[idx_mar30] == "MONITOR", (
+        f"V7: Expected baseline MONITOR on Mar 30, got {states_base[idx_mar30]}"
+    )
+
+    # With CRASH_GATE: Mar 30 must NOT be MONITOR (ABS arm suppressed)
+    states_cg, accum_cg, trades_cg = _run_state_machine(ytd, crash_gate=True, crash_gate_dd=-0.10)
+    assert states_cg[idx_mar30] == "RISK_ON", (
+        f"V7: Expected RISK_ON on Mar 30 with CRASH_GATE, got {states_cg[idx_mar30]}"
+    )
+
+    # Return should be higher (full position through the Apr recovery)
+    eq_s, _ = _run_backtest(ytd, states_cg, accum_cg, trades_cg)
+    ret_cg = [v for v in eq_s if v is not None][-1] - 1
+    assert ret_cg == pytest.approx(0.730, abs=0.02), (
+        f"V7: CRASH_GATE return = {ret_cg:.3f}, expected ≈ 73.0%"
+    )
+
+
+def test_v8_continuous_sizing_regression(df_full):
+    """V8: Continuous vol sizing min(1, 0.40/rv20) must yield significantly less than baseline.
+    Asserts conditional-only sizing (v3.1 Change 5) was not silently reverted."""
+    df_d = _compute_derived(df_full.copy())
+    ytd = df_d[df_d.index >= pd.Timestamp("2026-01-01")].copy()
+    states, accum_flags, trades = _run_state_machine(ytd, arm_mode="A")
+
+    backtest_start = pd.Timestamp("2026-01-20")
+    trade_dates = {t["date"] for t in trades}
+    slip = SLIPPAGE_BPS / 10_000
+    cum_cont = 1.0
+    cum_base = 1.0
+
+    for i, (idx, row) in enumerate(ytd.iterrows()):
+        if idx < backtest_start:
+            continue
+        ret = float(row["ret"]) if not np.isnan(float(row["ret"])) else 0.0
+        s = states[i]
+        pos_base = 1.0 if accum_flags[i] else STATE_POS.get(s, 0.0)
+        rv20 = float(row["rv20"]) if not np.isnan(float(row["rv20"])) else 1.0
+
+        # Continuous sizing: always apply min(1, 0.40/rv20) when invested
+        pos_cont = min(1.0, 0.40 / max(rv20, 0.001)) if pos_base > 0 else 0.0
+
+        cum_base *= 1 + ret * pos_base
+        cum_cont *= 1 + ret * pos_cont
+        if idx.strftime("%Y-%m-%d") in trade_dates:
+            cum_base *= 1 - slip
+            cum_cont *= 1 - slip
+
+    ret_base = cum_base - 1
+    ret_cont = cum_cont - 1
+
+    assert ret_cont < ret_base - 0.05, (
+        f"V8: Continuous sizing return {ret_cont:.3f} should be ≥5pts below "
+        f"baseline {ret_base:.3f}; continuous sizing was NOT rejected as expected"
+    )
+
+
+def test_v9_on20_mom_not_in_transitions():
+    """V9: on20_mom must NOT appear in _run_state_machine (display/sizing only, not transitions)."""
+    import inspect
+    src = inspect.getsource(_run_state_machine)
+    # Only the docstring may mention on20_mom; the actual logic must not reference it
+    src_body = src.split('"""', 2)[-1]  # strip the docstring
+    assert "on20_mom" not in src_body, (
+        "V9: on20_mom found in _run_state_machine body — explicitly forbidden (P2). "
+        "on20_mom is a sizing tilt only; it must never influence state transitions."
+    )

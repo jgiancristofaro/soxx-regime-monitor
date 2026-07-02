@@ -1,6 +1,13 @@
 export type StateMachine = 'RISK_ON' | 'MONITOR' | 'EXIT' | 'ACCUM' | 'WARMUP';
 export type TradeAction = 'EXIT' | 'REENTER';
-export type CheckStatus = 'green' | 'amber' | 'red' | 'gray';
+export type CheckStatus = 'green' | 'amber' | 'red' | 'gray' | 'grey';
+
+export interface ShortPermission {
+  ma50_vol: boolean;   // close < 50-DMA AND volume > 1.5× vol30
+  id20_neg: boolean;   // id20 < 0
+  on20_neg: boolean;   // on20 < 0
+  all: boolean;        // all three conditions met
+}
 
 export interface StateInfo {
   machine: StateMachine;
@@ -8,9 +15,11 @@ export interface StateInfo {
   since: string;
   position_multiplier: number;
   suggested_size: number;
-  short_permitted: boolean;
   arm_mode_a: boolean;
   arm_mode_b: boolean;
+  short_permission: ShortPermission;
+  /** @deprecated use short_permission */
+  short_permitted?: boolean;
 }
 
 export interface TodaySignals {
@@ -20,6 +29,10 @@ export interface TodaySignals {
   on20: number;
   ret20: number;
   id20_z: number | null;
+  on20_mom: number | null;
+  dd20: number | null;
+  vix_slope: number | null;
+  real_chg20: number | null;
   ma20: number;
   ma50: number;
   ma200: number;
@@ -70,6 +83,7 @@ export interface Series {
   id20: (number | null)[];
   id20_z: (number | null)[];
   on20: (number | null)[];
+  on20_mom: (number | null)[];
   rv20: (number | null)[];
   equity_strategy: (number | null)[];
   equity_bh: (number | null)[];

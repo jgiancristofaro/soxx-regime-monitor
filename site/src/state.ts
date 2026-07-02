@@ -55,6 +55,49 @@ export function renderStatePanel(data: SignalData): void {
       splitBanner.style.display = 'none';
     }
   }
+
+  // Short-permission indicator
+  renderShortPermission(data);
+}
+
+function renderShortPermission(data: SignalData): void {
+  const container = document.getElementById('short-permission');
+  if (!container) return;
+
+  const sp = data.state.short_permission;
+  if (!sp) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = '';
+  const conditions: Array<{ key: keyof typeof sp; label: string }> = [
+    { key: 'ma50_vol', label: 'Close < 50-DMA (vol > 1.5×)' },
+    { key: 'id20_neg', label: 'id20 < 0' },
+    { key: 'on20_neg', label: 'on20 < 0' },
+  ];
+
+  let html = '<div class="short-perm-label">Short conditions</div><div class="short-perm-grid">';
+  for (const c of conditions) {
+    const pass = sp[c.key as keyof typeof sp];
+    const icon = pass ? '✓' : '✗';
+    const cls = pass ? 'short-cond pass' : 'short-cond fail';
+    html += `<span class="${cls}">${icon} ${c.label}</span>`;
+  }
+  html += '</div>';
+
+  if (sp.all) {
+    html += '<div class="short-perm-all">ALL MET — short permitted per ruleset</div>';
+  } else {
+    // Show nearest actionable info
+    const today = data.today;
+    if (today.ma50 != null && today.close != null && today.close >= today.ma50) {
+      const gap = ((today.close - today.ma50) / today.close * 100).toFixed(1);
+      html += `<div class="short-perm-gap">Nearest line: MA50 $${today.ma50.toFixed(0)} (${gap}% above close)</div>`;
+    }
+  }
+
+  container.innerHTML = html;
 }
 
 export function renderChecklist(data: SignalData): void {
@@ -71,6 +114,10 @@ export function renderChecklist(data: SignalData): void {
       display = fmtPct(item.value, 1);
     } else if (item.fmt === 'z') {
       display = (item.value >= 0 ? '+' : '') + item.value.toFixed(2) + 'σ';
+    } else if (item.fmt === 'bp') {
+      // basis points: value in percentage-point units (e.g. 0.15 = 15bp)
+      const bp = Math.round(item.value * 100);
+      display = (bp >= 0 ? '+' : '') + bp + 'bp';
     } else {
       display = (item.value >= 0 ? '+' : '') + item.value.toFixed(2);
     }
@@ -115,14 +162,19 @@ function renderMetricRows(data: SignalData): void {
   grid.textContent = '';
   const today = data.today;
 
+  const vixSlopeStr = today.vix_slope != null
+    ? (today.vix_slope >= 0 ? '+' : '') + today.vix_slope.toFixed(2) + ' (VIX3M−VIX)'
+    : 'n/a';
+
   const metrics: Array<[string, string]> = [
-    ['RSI 14',  today.rsi14.toFixed(1)],
-    ['MA20',    '$' + today.ma20.toFixed(0)],
-    ['MA50',    '$' + today.ma50.toFixed(0)],
-    ['RV20',    fmtPct(today.rv20, 0)],
-    ['RV20 p90', today.rv20_p90 != null ? fmtPct(today.rv20_p90, 0) : 'n/a'],
-    ['Turb',    today.turb.toFixed(2)],
-    ['Dist-20', today.dist20 + 'd'],
+    ['RSI 14',      today.rsi14.toFixed(1)],
+    ['MA20',        '$' + today.ma20.toFixed(0)],
+    ['MA50',        '$' + today.ma50.toFixed(0)],
+    ['RV20',        fmtPct(today.rv20, 0)],
+    ['RV20 p90',    today.rv20_p90 != null ? fmtPct(today.rv20_p90, 0) : 'n/a'],
+    ['Turb',        today.turb.toFixed(2)],
+    ['Dist-20',     today.dist20 + 'd'],
+    ['VIX Slope',   vixSlopeStr],
   ];
 
   for (const [k, v] of metrics) {
@@ -165,7 +217,6 @@ export function renderTradesTable(data: SignalData): void {
     const label = STATE_LABEL[entry.state];
     const tr = document.createElement('tr');
 
-    // State cell: small colored chip
     const dateTd = document.createElement('td');
     dateTd.textContent = fmtDate(entry.date);
     tr.appendChild(dateTd);

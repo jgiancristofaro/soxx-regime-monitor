@@ -19,6 +19,7 @@
 | [008](#008) | 2026-07-02 | Initial push to GitHub, Pages enabled |
 | [009](#009) | 2026-07-02 | Renamed states ARMED→MONITOR, FIRED→EXIT; added Defined Terms to methodology |
 | [010](#010) | 2026-07-02 | Change Order v3.1: hybrid arm, ACCUM stops, slippage, conditional sizing, N1-N8 tests |
+| [011](#011) | 2026-07-02 | Change Order v3.2: derived series, FRED, sizing tilt, short-perm, ENSEMBLE, CRASH_GATE, V1-V9 |
 
 ---
 
@@ -179,5 +180,38 @@ Implemented CHANGE_ORDER_v3.1.md in full. Summary of decisions:
 **Change 8 — Methodology:** §5 (sizing) updated to describe conditional formula. §6 (backtest) updated (slippage + 600-day window). New §8 "Known Failure Modes (Verified)" added with F1–F5 verbatim, escape-valve caveat, calibration warning, and VRP note.
 
 **Backtest return:** Mode A and hybrid both return ~71.97% (net of slippage) vs the pre-v3.1 77.2%. The drop is attributable to the ACCUM tracking refactor and slippage introduced in the prior session. The N8 tolerance was set to ±5pp relative to Mode A (not the historic 77.2%) since both modes produce identical histories on this fixture.
+
+---
+
+<a name="011"></a>
+## [011] 2026-07-02 — Change Order v3.2: derived series, FRED, sizing tilt, short-perm, ENSEMBLE, CRASH_GATE, V1-V9
+
+Implemented CHANGE_ORDER_v3.2.md in full (10 changes). Summary of decisions:
+
+**Change 1 — Order-of-operations pin (V1):** Confirmed and codified the same-day arm+exit sequence. A deferred-price bug was found and fixed — the exit was incorrectly assigned the Jun 11 close ($586.93) rather than the Jun 18 close ($639.45). Tests V1a/V1b/V1c pin the exit date, exit price, and the no-trade window Jun 9–12. The golden record (3 trades) is unchanged.
+
+**Change 2 — Derived series:** Added `on20_mom = on20 - on20.shift(5)`, `dd20 = close/close.rolling(20).max() - 1`, and multi-N series for ENSEMBLE support (id20_15, id20_25, their z-scores and 60-session maxima). These are computed in `_compute_derived` and included in `series` and `today` outputs.
+
+**Change 3 — on20_mom sizing tilt (display/sizing only):** When state=MONITOR and `on20_mom < ONMOM_TILT (-5%)`, `suggested_size` is multiplied by `ONMOM_FACTOR (0.8)`. Hard rule: on20_mom **never** enters state machine transition logic. Test V9 enforces this by inspecting the source of `_run_state_machine` and asserting "on20_mom" does not appear in the body after the docstring. Tests V2/V3/V4 pin fixture values for on20_mom at May 15, Jun 22, and Jul 1.
+
+**Change 4 — Dashboard additions (8 checklist cards):** Two new checklist cards added: `on20_mom` (fmt='pct1', amber when < ONMOM_TILT) and `real_chg20` (fmt='bp', amber/red for rising real yields). VIX Slope row added to Key Metrics grid. Short-permission indicator added below position size, showing per-condition pass/fail with green ✓ / grey ✗ icons. Short permission requires all three: (1) close < 50-DMA AND vol > 1.5×vol30, (2) id20 < 0, (3) on20 < 0.
+
+**Change 5 — FRED fetches (continue-on-error):** `fetch_fred_series()` in sources.py uses the FRED graph CSV API (no API key). `_fetch_fred_columns()` in compute.py fetches VIXCLS, VXVCLS, DGS10, T10YIE; computes `vix_slope = VXVCLS - VIXCLS` and `real_chg20`. Bug found: FRED CSVs use `observation_date` column header (not `DATE`). Fixed with case-insensitive column search. If any FRED series fails, pipeline continues with null values — these fields are context-only, never in transitions. Current reading: vix_slope = +2.57 (VIX3M in contango, confirming orderly correction).
+
+**Change 6 — options_history.csv bootstrap:** `_append_options_history()` in compute.py appends daily snapshots of iv30, pc_oi, pcvol, iv90, skew25d to `data/options_history.csv` with date deduplication. New fields added to `data/manual.json` format.
+
+**Change 7 — hourly.csv capture:** `_fetch_hourly_bars()` tries yfinance 60m bars, appends to `data/hourly.csv`. Best-effort (try/except), no impact on signals pipeline.
+
+**Change 8 — ENSEMBLE_ARM and CRASH_GATE flags (both default OFF):**
+- `ENSEMBLE_ARM = False`: 2-of-3 majority vote at N=15/20/25. Test V6 confirms return ≈72.7% (same as baseline), Jun 18 exit date/price unchanged. Too little variation on fixture to justify enabling.
+- `CRASH_GATE = False`: suppress ABS arm when `dd20 ≤ CRASH_GATE_DD (-10%)`. Prevents knife-edge MONITOR signal at the Mar 30 low (dd20 = −10.3%). Test V7 confirms CRASH_GATE=True → RISK_ON at Mar 30 vs MONITOR at baseline. +0.3pt improvement on 1 episode = insufficient to enable by default.
+
+**Change 9 — Test vectors V1–V9:** Added 9 new test functions to `test_state_machine.py` (total: 53 tests, all pass). See V1–V9 descriptions above. Key tolerances: V2 ±0.003, V3 ±0.005, V4 ±0.003, V5 ±0.002, V6 ±0.03, V7 ±0.02. V8 uses relative assertion (cont_return < baseline − 0.05). V9 is a static source inspection.
+
+**Change 10 — Methodology appendix:** Added "Appendix A — v3.2 Pressure Test Results" to `site/public/methodology.html` documenting P1–P6 findings, rejected candidates table, corrected performance characterization, exit_id calibration note, and calibration gap note.
+
+**TypeScript fix:** `theme.ts` STATUS_COLOR record was missing the `'grey'` key (introduced when `CheckStatus` union was expanded to include both `'gray'` and `'grey'`). Added `grey: '#6b7280'`. Build passes cleanly.
+
+**Live pipeline output (Jul 2, 2026):** id20=−12.2%, on20=+6.3%, on20_mom=−10.8%, vix_slope=+2.57, real_chg20=+14bp, state=EXIT since Jun 18. 8 checklist cards confirmed. 53/53 tests pass.
 
 ---
