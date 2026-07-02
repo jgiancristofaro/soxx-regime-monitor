@@ -49,6 +49,12 @@
     th { text-align: left; padding: 0.5rem 0.75rem; color: #9ca3af; border-bottom: 1px solid #30363d; }
     td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1f2937; color: #d1d5db; }
     .note { background: #1c2a1c; border-left: 3px solid #22c55e; padding: 0.75rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; font-size: 0.88rem; }
+    dl { margin: 0.5rem 0; }
+    dt { font-weight: 700; color: #e6edf3; margin-top: 1rem; display: flex; align-items: baseline; gap: 0.5rem; }
+    dt code { font-size: 0.85em; }
+    dd { margin: 0.2rem 0 0 1.25rem; color: #d1d5db; font-size: 0.9rem; }
+    dd + dd { margin-top: 0.1rem; }
+    .tag { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.1em 0.45em; border-radius: 4px; background: #1f2937; color: #9ca3af; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }
   </style>
 </head>
 <body>
@@ -67,7 +73,89 @@
 </ul>
 <p>A 20-session rolling sum of each gives <code>on20</code> and <code>id20</code>. Persistent negative <code>id20</code> while <code>on20</code> stays positive signals distribution (institutions selling into overnight strength). This divergence precedes drawdowns.</p>
 
-<h2>2. Key Signals</h2>
+<h2>2. Defined Terms</h2>
+<p>All metrics used in this dashboard, in plain English.</p>
+
+<h3>Daily Return Components</h3>
+<dl>
+  <dt><code>on</code> <span class="tag">overnight return</span></dt>
+  <dd>The price change from the previous day's close to today's open — what happened while the market was shut.</dd>
+  <dd>Formula: log(open<sub>t</sub> / close<sub>t−1</sub>). Driven by news, macro data, and retail order flow.</dd>
+
+  <dt><code>id</code> <span class="tag">intraday return</span></dt>
+  <dd>The price change from today's open to today's close — what happened during the trading session.</dd>
+  <dd>Formula: log(close<sub>t</sub> / open<sub>t</sub>). Dominated by institutional order flow.</dd>
+
+  <dt><code>ret</code> <span class="tag">total daily return</span></dt>
+  <dd>The full day's log-return: previous close to current close. Equal to <code>on + id</code>.</dd>
+</dl>
+
+<h3>Rolling Stream Signals</h3>
+<dl>
+  <dt><code>id20</code> <span class="tag">20-day intraday stream</span></dt>
+  <dd>The sum of the last 20 intraday returns. This is the core decision signal.</dd>
+  <dd>When negative, institutions have been net sellers during the trading day over the past month, even if the stock is up. This is the distribution signal that arms the monitor.</dd>
+
+  <dt><code>on20</code> <span class="tag">20-day overnight stream</span></dt>
+  <dd>The sum of the last 20 overnight returns. Captures the retail/news-driven bid.</dd>
+  <dd>When <code>on20</code> stays positive while <code>id20</code> turns negative, it means institutions are quietly selling into overnight gaps — the defining divergence pattern.</dd>
+
+  <dt><code>ret20</code> <span class="tag">20-day total return</span></dt>
+  <dd>The cumulative log-return over the last 20 sessions. Measures the current 1-month trend.</dd>
+  <dd>Used in the arm condition (distribution is only flagged when the trend is still up) and the accumulation overlay (price falling with id20 positive).</dd>
+</dl>
+
+<h3>Volatility Metrics</h3>
+<dl>
+  <dt><code>rv20</code> <span class="tag">20-day realized volatility</span></dt>
+  <dd>The annualized standard deviation of daily log-returns over the past 20 sessions.</dd>
+  <dd>Used to scale position size: full exposure only when volatility is below ~50% annualized. High volatility = smaller suggested size.</dd>
+
+  <dt><code>rv10</code> <span class="tag">10-day realized volatility</span></dt>
+  <dd>Same as rv20 but over 10 sessions — a shorter-term volatility gauge, more sensitive to recent spikes.</dd>
+
+  <dt><code>iv30</code> <span class="tag">30-day implied volatility</span></dt>
+  <dd>The market's expectation of volatility over the next 30 days, derived from options prices. Entered manually from options market data.</dd>
+
+  <dt><code>vrp</code> <span class="tag">variance risk premium</span></dt>
+  <dd>Implied vol minus realized vol: <code>iv30 − rv20</code>.</dd>
+  <dd>Positive = options are expensive relative to recent moves (normal; sellers get paid a premium). Negative = options are cheap, which often happens during sharp sell-offs when realized vol spikes above implied. Negative VRP suggests hedging with puts is cheap.</dd>
+</dl>
+
+<h3>Trend &amp; Momentum Indicators</h3>
+<dl>
+  <dt><code>ma20</code> / <code>ma50</code> / <code>ma200</code> <span class="tag">moving averages</span></dt>
+  <dd>Simple moving averages of closing prices over 20, 50, and 200 sessions respectively.</dd>
+  <dd><code>ma20</code> is the re-entry line: price must recover above it (for 2 consecutive sessions with positive id20) to trigger a trend-reclaim re-entry from EXIT state.</dd>
+
+  <dt><code>rsi14</code> <span class="tag">relative strength index</span></dt>
+  <dd>A momentum oscillator (0–100) measuring the speed and magnitude of recent price changes over 14 sessions.</dd>
+  <dd>Above 70 = overbought; below 30 = oversold. Used as a supplementary context indicator — not a direct input to the state machine.</dd>
+
+  <dt><code>dist20</code> <span class="tag">sessions since MA20 cross</span></dt>
+  <dd>How many trading sessions have elapsed since price last crossed above or below the 20-day moving average.</dd>
+  <dd>A large number means price has been persistently above or below the line — indicating a more entrenched trend.</dd>
+
+  <dt><code>ar1</code> <span class="tag">return autocorrelation</span></dt>
+  <dd>The first-order autocorrelation of daily returns over the last 20 sessions.</dd>
+  <dd>Positive = returns are trending (today up → tomorrow likely up). Negative = mean-reverting (today up → tomorrow likely down). Extreme negative values can signal choppy, whipsaw conditions.</dd>
+</dl>
+
+<h3>Sentiment &amp; Risk Indicators</h3>
+<dl>
+  <dt><code>turb</code> <span class="tag">turbulence score</span></dt>
+  <dd>A statistical measure of how unusual today's return is relative to the recent 20-day distribution, expressed as a Z-score.</dd>
+  <dd>A score above 3 means today's move is more than 3 standard deviations from recent average — a tail event. The Jun 5, 2026 crash (−10.4%) scored ~3.7.</dd>
+
+  <dt><code>pc_oi</code> <span class="tag">put/call open interest ratio</span></dt>
+  <dd>The total open interest of put options divided by call options on SOXX (entered manually from options market data).</dd>
+  <dd>High ratio = more puts outstanding than calls = bearish hedging in the market. Useful as a sentiment cross-check; not a direct state machine input.</dd>
+
+  <dt><code>iv30_asof</code></dt>
+  <dd>The date the IV30 reading was last manually updated. Shown to flag when the options data may be stale.</dd>
+</dl>
+
+<h2>3. Key Signals</h2>
 <table>
   <tr><th>Signal</th><th>Formula</th><th>Interpretation</th></tr>
   <tr><td><code>id20</code></td><td>Σ id<sub>t</sub> over 20 sessions</td><td>Decision series; negative = distribution</td></tr>
@@ -77,18 +165,18 @@
   <tr><td><code>vrp</code></td><td>iv30 − rv20</td><td>Variance risk premium; negative = options cheap</td></tr>
 </table>
 
-<h2>3. State Machine</h2>
+<h2>4. State Machine</h2>
 <p>The system operates in five states:</p>
 <table>
   <tr><th>State</th><th>Colour</th><th>Meaning</th></tr>
   <tr><td>WARMUP</td><td style="color:#6b7280">■ Gray</td><td>First 20 sessions of year — insufficient history</td></tr>
   <tr><td>RISK_ON</td><td style="color:#22c55e">■ Green</td><td>Fully invested; no distribution signal</td></tr>
-  <tr><td>ARMED</td><td style="color:#f59e0b">■ Amber</td><td>Distribution detected; monitoring for exit trigger</td></tr>
-  <tr><td>FIRED</td><td style="color:#ef4444">■ Red</td><td>Flat / defensive; awaiting re-entry conditions</td></tr>
+  <tr><td>MONITOR</td><td style="color:#f59e0b">■ Amber</td><td>Distribution detected; monitoring for exit trigger</td></tr>
+  <tr><td>EXIT</td><td style="color:#ef4444">■ Red</td><td>Flat / defensive; awaiting re-entry conditions</td></tr>
   <tr><td>ACCUM</td><td style="color:#3b82f6">■ Blue</td><td>Overlay: price weak but intraday flow positive — stay invested</td></tr>
 </table>
 
-<h3>3.1 Arm Condition (RISK_ON → ARMED)</h3>
+<h3>4.1 Arm Condition (RISK_ON → MONITOR)</h3>
 <p>Either of:</p>
 <ul>
   <li><strong>DIV arm:</strong> <code>id20 &lt; 0</code> AND <code>ret20 &gt; +2%</code> (distribution while trend still up)</li>
@@ -96,29 +184,29 @@
 </ul>
 <p>Arm condition must be true at open; does not fire during ACCUM.</p>
 
-<h3>3.2 Exit Trigger (ARMED → FIRED)</h3>
+<h3>4.2 Exit Trigger (MONITOR → EXIT)</h3>
 <p><strong>Exec-into-strength:</strong> <code>id<sub>t</sub> &gt; +1%</code> OR <code>ret<sub>t</sub> &gt; +1.5%</code> while armed condition is still true.</p>
-<p><strong>Same-day arm+exit:</strong> if arm and exit conditions both trigger on the same session, exit fires immediately (ARMED band shown for that day only).</p>
-<p><strong>Escape valve:</strong> after 3 sessions armed with no strength day AND close &lt; MA20, exit anyway.</p>
+<p><strong>Same-day arm+exit:</strong> if arm and exit conditions both trigger on the same session, exit fires immediately (MONITOR band shown for that day only).</p>
+<p><strong>Escape valve:</strong> after 3 sessions in MONITOR with no strength day AND close &lt; MA20, exit anyway.</p>
 
-<h3>3.3 Disarm (ARMED → RISK_ON, no trade)</h3>
+<h3>4.3 Disarm (MONITOR → RISK_ON, no trade)</h3>
 <p>If the arm condition clears (reverses) before an exit executes → cancel, no trade. This takes priority over exec-into-strength on the day the condition clears.</p>
 
-<h3>3.4 Accumulation Override (RISK_ON + ACCUM overlay)</h3>
+<h3>4.4 Accumulation Override (RISK_ON + ACCUM overlay)</h3>
 <p><code>id20 &gt; +2%</code> AND <code>ret20 &lt; −2%</code> — price falling but institutions buying intraday. Remain invested; arm condition does not fire during ACCUM.</p>
 
-<h3>3.5 Re-entry (FIRED → RISK_ON)</h3>
+<h3>4.5 Re-entry (EXIT → RISK_ON)</h3>
 <p>Any of:</p>
 <ul>
-  <li><strong>Disarm:</strong> arm condition clears while FIRED → immediate re-entry</li>
-  <li><strong>Accumulation flip:</strong> acc condition triggers while FIRED → re-entry</li>
+  <li><strong>Disarm:</strong> arm condition clears while in EXIT → immediate re-entry</li>
+  <li><strong>Accumulation flip:</strong> acc condition triggers while in EXIT → re-entry</li>
   <li><strong>MA20 recovery:</strong> 2 consecutive sessions above MA20 while <code>id20 &gt; 0</code></li>
 </ul>
 
-<h2>4. Position Sizing</h2>
-<p>Suggested size is scaled by realised volatility: <code>size = min(1, 0.50 / rv20)</code> when RISK_ON. Full position only when vol &lt; 50% annualised. FIRED = 0%.</p>
+<h2>5. Position Sizing</h2>
+<p>Suggested size is scaled by realised volatility: <code>size = min(1, 0.50 / rv20)</code> when RISK_ON. Full position only when vol &lt; 50% annualised. EXIT = 0%.</p>
 
-<h2>5. Backtest Assumptions</h2>
+<h2>6. Backtest Assumptions</h2>
 <ul>
   <li>YTD start = first trading session of Jan 2026; WARMUP = first 20 sessions</li>
   <li>State machine resets each Jan 1</li>
@@ -127,7 +215,7 @@
   <li>Historical window: 420 calendar days for rolling computations</li>
 </ul>
 
-<h2>6. Data Sources</h2>
+<h2>7. Data Sources</h2>
 <p>OHLCV data: yfinance → stooq → stockanalysis (fallback chain). Updated daily via GitHub Actions at 22:15 UTC on weekdays. IV30 and P/C OI are entered manually in <code>data/manual.json</code>.</p>
 
 <div class="note">

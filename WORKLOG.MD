@@ -17,6 +17,7 @@
 | [006](#006) | 2026-07-02 | Data pipeline fallback chain order |
 | [007](#007) | 2026-07-02 | State machine disarm priority fix |
 | [008](#008) | 2026-07-02 | Initial push to GitHub, Pages enabled |
+| [009](#009) | 2026-07-02 | Renamed states ARMED→MONITOR, FIRED→EXIT; added Defined Terms to methodology |
 
 ---
 
@@ -139,5 +140,16 @@ All 34 tests pass after this fix.
 2. Copy `data/signals.json` → `site/public/data/signals.json`
 3. Commit both files
 4. Trigger `deploy.yml` → Vite build → GitHub Pages
+
+---
+
+<a name="009"></a>
+## [009] 2026-07-02 — Renamed states ARMED→MONITOR, FIRED→EXIT; added Defined Terms to methodology
+
+**State renames (user request):** ARMED → MONITOR, FIRED → EXIT. More intuitive: MONITOR = "watching for an exit trigger"; EXIT = "flat, out of position."
+
+Files changed: `pipeline/state_machine.py` constants, `pipeline/tests/test_state_machine.py` assertions, `site/src/types.ts` (StateMachine type), `site/src/theme.ts` (STATE_COLOR/STATE_LABEL keys), `site/src/state.ts` (badge color check, trade color references), CLAUDE.md state color table. All 34 tests continue to pass. Deploy confirmed at `https://jgiancristofaro.github.io/soxx-regime-monitor/`.
+
+**Defined Terms section added to `site/public/methodology.html`:** New §2 inserted between Overview and Key Signals, defining every metric in plain English (id, on, ret, id20, on20, ret20, rv10, rv20, vrp, iv30, turb, ar1, rsi14, ma20/ma50/ma200, dist20, pc_oi, iv30_asof). Previous §2–§6 renumbered to §3–§7. Stale ARMED/FIRED references in the state table (§4) and subsection headings (§4.1–§4.5) updated to MONITOR/EXIT.
 
 ---
