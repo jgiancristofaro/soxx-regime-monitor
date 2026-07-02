@@ -73,7 +73,7 @@ def _band_state_on(result: dict, date_str: str) -> str | None:
 
 def test_jul01_state_fired(result):
     """System is OUT (flat) as of Jul 1, 2026."""
-    assert result["state"]["machine"] == "OUT"
+    assert result["state"]["machine"] == "EXIT"
     assert result["last_session"] == "2026-07-01"
 
 
@@ -82,7 +82,7 @@ def test_jun22_state_fired(result):
     # Note: spec §6.4 says 'state MONITOR' on Jun 22, but EXIT fired Jun 18 @639.45
     # (same-day arm+exit). System has been flat since Jun 18.
     state = _band_state_on(result, "2026-06-22")
-    assert state == "OUT", f"Expected OUT on 2026-06-22, got: {state}"
+    assert state == "EXIT", f"Expected OUT on 2026-06-22, got: {state}"
 
 
 def test_jun09_10_cancel_no_trade(result):

@@ -2,7 +2,7 @@
   "last_session": "2026-07-02",
   "data_stale": false,
   "state": {
-    "machine": "OUT",
+    "machine": "EXIT",
     "accum_overlay": false,
     "since": "2026-06-18",
     "position_multiplier": 0.0,
@@ -10,21 +10,21 @@
     "short_permitted": false
   },
   "today": {
-    "close": 557.88,
-    "ret": -0.0697,
-    "id20": -0.136,
+    "close": 557.33,
+    "ret": -0.0707,
+    "id20": -0.1369,
     "on20": 0.063,
-    "ret20": -0.0682,
-    "ma20": 597.27,
-    "ma50": 545.28,
+    "ret20": -0.0691,
+    "ma20": 597.25,
+    "ma50": 545.27,
     "ma200": 375.91,
-    "rv10": 0.8874,
-    "rv20": 0.8817,
-    "turb": 1.9995,
-    "ar1": -0.1701,
-    "rsi14": 46.1972,
+    "rv10": 0.8893,
+    "rv20": 0.8826,
+    "turb": 2.0209,
+    "ar1": -0.1688,
+    "rsi14": 46.1261,
     "dist20": 4,
-    "vrp": -0.4217,
+    "vrp": -0.4226,
     "iv30_asof": "2026-07-01"
   },
   "bands": [
@@ -46,7 +46,7 @@
     {
       "start": "2026-02-06",
       "end": "2026-02-06",
-      "state": "OUT"
+      "state": "EXIT"
     },
     {
       "start": "2026-02-09",
@@ -111,7 +111,7 @@
     {
       "start": "2026-06-22",
       "end": null,
-      "state": "OUT"
+      "state": "EXIT"
     }
   ],
   "trades": [
@@ -387,7 +387,7 @@
       614.35,
       640.76,
       599.7,
-      557.88
+      557.33
     ],
     "ma20": [
       303.9,
@@ -514,7 +514,7 @@
       596.95,
       600.4,
       600.15,
-      597.27
+      597.25
     ],
     "id20": [
       -0.0636,
@@ -641,7 +641,7 @@
       -0.0284,
       -0.0031,
       -0.0648,
-      -0.136
+      -0.1369
     ],
     "on20": [
       0.083,
@@ -895,7 +895,7 @@
       0.8239,
       0.8347,
       0.8484,
-      0.8817
+      0.8826
     ],
     "equity_strategy": [
       null,
@@ -1149,7 +1149,7 @@
       1.795837,
       1.873038,
       1.753013,
-      1.630767
+      1.629159
     ],
     "smh_close": [
       null,
@@ -1283,7 +1283,7 @@
     {
       "id": "id20",
       "label": "Intraday 20d stream",
-      "value": -0.136,
+      "value": -0.1369,
       "fmt": "pct1",
       "status": "red",
       "note": "negative = distribution (institutions selling intraday)"
@@ -1299,15 +1299,15 @@
     {
       "id": "ma",
       "label": "Close vs 20-DMA",
-      "value": -0.066,
+      "value": -0.0668,
       "fmt": "pct1",
       "status": "red",
-      "note": "re-entry line 597.3"
+      "note": "re-entry line 597.2"
     },
     {
       "id": "rv20",
       "label": "Realized vol (20d)",
-      "value": 0.8817,
+      "value": 0.8826,
       "fmt": "pct0",
       "status": "red",
       "note": "regime normalizes < 50%; sets position size"
@@ -1315,7 +1315,7 @@
     {
       "id": "vrp",
       "label": "IV30 \u2212 RV20",
-      "value": -0.4217,
+      "value": -0.4226,
       "fmt": "pts",
       "status": "amber",
       "note": "puts cheap vs realized \u2014 hedge with options"
@@ -1363,5 +1363,5 @@
       "text": "\u00e2\u02c6\u20196.4% day; Michael Burry SOXX short disclosed. id20 = \u00e2\u02c6\u20196.5%, on20 = +7.8%"
     }
   ],
-  "generated_utc": "2026-07-02T19:08:10Z"
+  "generated_utc": "2026-07-02T19:12:27Z"
 }

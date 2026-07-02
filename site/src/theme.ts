@@ -3,7 +3,7 @@ import type { StateMachine, CheckStatus } from './types';
 export const STATE_COLOR: Record<StateMachine, string> = {
   RISK_ON:  '#22c55e',
   MONITOR:  '#f59e0b',
-  OUT:      '#ef4444',
+  EXIT:      '#ef4444',
   ACCUM:    '#3b82f6',
   WARMUP:   '#6b7280',
 };
@@ -11,7 +11,7 @@ export const STATE_COLOR: Record<StateMachine, string> = {
 export const STATE_LABEL: Record<StateMachine, string> = {
   RISK_ON:  'RISK ON',
   MONITOR:  'MONITOR',
-  OUT:      'OUT',
+  EXIT:      'EXIT',
   ACCUM:    'ACCUM',
   WARMUP:   'WARMUP',
 };

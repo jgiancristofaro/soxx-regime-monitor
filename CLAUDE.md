@@ -136,7 +136,7 @@ Use these colors everywhere (chips, bands, status dots):
 | RISK_ON | Fully invested               | `rgba(27,175,122,0.10)`     | `#1baf7a`   |
 | ACCUM   | Buy-the-dip regime           | `rgba(42,120,214,0.14)`     | `#2a78d6`   |
 | MONITOR | Distribution flagged         | `rgba(237,161,0,0.14)`      | `#eda100`   |
-| OUT     | Flat / out of position       | `rgba(237,73,72,0.15)`      | `#e34948`   |
+| EXIT    | Flat / out of position       | `rgba(237,73,72,0.15)`      | `#e34948`   |
 | WARMUP  | Insufficient window          | `rgba(137,135,129,0.10)`    | `#898781`   |
 
 Never rely on color alone — always include text labels.

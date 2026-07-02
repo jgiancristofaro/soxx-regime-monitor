@@ -19,9 +19,9 @@ REENTER_MA_DAYS  = 2       # closes above ma20 needed for trend-reclaim re-entry
 WARMUP_SESSIONS  = 20      # first N sessions of YTD are warm-up (no signals)
 # ────────────────────────────────────────────────────────────────────────────
 
-RISK_ON, MONITOR, OUT, WARMUP, ACCUM = "RISK_ON", "MONITOR", "OUT", "WARMUP", "ACCUM"
+RISK_ON, MONITOR, EXIT, WARMUP, ACCUM = "RISK_ON", "MONITOR", "EXIT", "WARMUP", "ACCUM"
 
-STATE_POS = {RISK_ON: 1.0, MONITOR: 0.6, OUT: 0.0, WARMUP: 0.0, ACCUM: 1.0}
+STATE_POS = {RISK_ON: 1.0, MONITOR: 0.6, EXIT: 0.0, WARMUP: 0.0, ACCUM: 1.0}
 
 
 def _wilder_rsi(series: pd.Series, period: int = 14) -> pd.Series:
@@ -69,11 +69,11 @@ def _run_state_machine(df: pd.DataFrame) -> tuple[list[str], list[bool], list[di
     Key design decisions:
     - Warmup: first WARMUP_SESSIONS rows → no signals.
     - Same-day arm+exit: if arm condition first met on a strength day, EXIT that day
-      (band records MONITOR for display; position is OUT from next day).
+      (band records MONITOR for display; position is EXIT from next day).
     - Disarm priority: after DISARM_SESSIONS sessions in MONITOR, if arm cond clears,
       cancel (disarm) BEFORE checking exec-into-strength exit. This handles the
       June 9-10 episode (2 sessions in MONITOR → arm cond cleared Jun 11 → cancel).
-    - OUT disarm re-entry: if arm cond clears while OUT → immediate re-entry.
+    - EXIT disarm re-entry: if arm cond clears while EXIT → immediate re-entry.
     """
     # display_state is what gets recorded in the states list (for bands).
     # internal state (the `state` variable) drives the next day's logic.
@@ -122,7 +122,7 @@ def _run_state_machine(df: pd.DataFrame) -> tuple[list[str], list[bool], list[di
                 display_state = MONITOR
                 if strength:
                     # Same-day arm + exec-into-strength: EXIT immediately
-                    state = OUT
+                    state = EXIT
                     sessions_since_fired = 0
                     reenter_above_ma20 = 0
                     trades.append({
@@ -150,7 +150,7 @@ def _run_state_machine(df: pd.DataFrame) -> tuple[list[str], list[bool], list[di
                 sessions_since_arm = 0
             elif strength:
                 # Armed condition still active AND exec-into-strength → EXIT
-                state = OUT
+                state = EXIT
                 sessions_since_fired = 0
                 reenter_above_ma20 = 0
                 trades.append({
@@ -162,7 +162,7 @@ def _run_state_machine(df: pd.DataFrame) -> tuple[list[str], list[bool], list[di
                 sessions_since_arm = 0
             elif sessions_since_arm >= ESCAPE_SESSIONS and close < ma20:
                 # Escape valve: in MONITOR N sessions with no strength, below MA20
-                state = OUT
+                state = EXIT
                 sessions_since_fired = 0
                 reenter_above_ma20 = 0
                 trades.append({
@@ -173,7 +173,7 @@ def _run_state_machine(df: pd.DataFrame) -> tuple[list[str], list[bool], list[di
                 })
                 sessions_since_arm = 0
 
-        elif state == OUT:
+        elif state == EXIT:
             sessions_since_fired += 1
 
             if not armed_cond:
