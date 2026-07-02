@@ -15,6 +15,8 @@
 | [004](#004) | 2026-07-02 | State machine constant choices (in-sample) |
 | [005](#005) | 2026-07-02 | Frontend stack decision: Vite + TS + Chart.js, no framework |
 | [006](#006) | 2026-07-02 | Data pipeline fallback chain order |
+| [007](#007) | 2026-07-02 | State machine disarm priority fix |
+| [008](#008) | 2026-07-02 | Initial push to GitHub, Pages enabled |
 
 ---
 
@@ -92,5 +94,50 @@ Rationale per PRD §3.1:
 If ALL sources fail: reuse `data/history.csv` (last-good committed data) and set `data_stale: true` in signals.json. Frontend shows yellow banner. This ensures the site never crashes on a pipeline failure.
 
 IV30 and P/C OI are manual-entry (`data/manual.json`) — not automated, treated as optional. All state-machine logic works without them.
+
+---
+
+<a name="007"></a>
+## [007] 2026-07-02 — State machine disarm priority fix
+
+**Problem:** 3 extra EXIT/REENTER trades appeared in Feb and Mar (Feb 20 EXIT, Feb 23 REENTER, Mar 31 EXIT, Apr 1 REENTER) when tests expected exactly 3 trades total.
+
+**Root cause:** The original ARMED → RISK_ON disarm required `sessions_since_arm >= DISARM_SESSIONS (2)` before firing. On Feb 19→20 and Mar 30→31, the arm condition cleared after only 1 session, so the `sessions_since_arm` guard prevented disarm — and exec-into-strength fired instead (both had strong intraday days coinciding with the arm reversal).
+
+**Fix:** Simplified ARMED → RISK_ON disarm to fire immediately when `armed_cond = False`, with no sessions requirement. The key insight: if distribution signal reversed, there is no reason to execute a defensive exit. The disarm priority check runs BEFORE the strength check in the state loop.
+
+**Why this is correct per golden record:**
+- Feb 5: arm condition still True → EXIT fires ✓
+- Feb 17: arm condition False (id20 turned positive) → DISARM (after 2 sessions, coincidence) ✓
+- Feb 20: arm condition False → DISARM immediately (1 session), not EXIT ✓
+- Mar 31: arm condition False (id20 recovered) → DISARM immediately ✓
+- Jun 18: same-day arm+exit (handled in RISK_ON block, not ARMED block) ✓
+
+**DISARM_SESSIONS constant:** now unused in the ARMED disarm path. Retained in constants for documentation/future use. Could be repurposed as min-sessions-before-escape or removed in a future refactor.
+
+All 34 tests pass after this fix.
+
+---
+
+<a name="008"></a>
+## [008] 2026-07-02 — Initial push to GitHub, Pages enabled
+
+- Repo created: `https://github.com/jgiancristofaro/soxx-regime-monitor`
+- Branch: `main` (renamed from `master` immediately after initial push)
+- GitHub Pages enabled with `build_type: workflow` (GitHub Actions source)
+- Public URL confirmed: `https://jgiancristofaro.github.io/soxx-regime-monitor/`
+- First deploy triggered via `gh workflow run deploy.yml`
+- `regime-alert` issue label created (color `#d73a4a`) for state-change notifications
+
+**GitHub Actions workflows:**
+- `ci.yml`: runs on push/PR to main — pytest (34 tests) + tsc + vite build
+- `daily.yml`: cron 22:15 UTC weekdays — fetch live OHLCV, compute signals, commit data, trigger deploy, open GitHub Issue on ARMED/FIRED state
+- `deploy.yml`: triggered by daily + push to site/** or data/signals.json — builds Vite site, uploads to GitHub Pages
+
+**Data flow on each daily run:**
+1. `pipeline/compute.py` → writes `data/signals.json` + `data/history.csv`
+2. Copy `data/signals.json` → `site/public/data/signals.json`
+3. Commit both files
+4. Trigger `deploy.yml` → Vite build → GitHub Pages
 
 ---
