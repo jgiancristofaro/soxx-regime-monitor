@@ -122,6 +122,29 @@
   <dd>Positive = options are expensive relative to recent moves (normal; sellers get paid a premium). Negative = options are cheap, which often happens during sharp sell-offs when realized vol spikes above implied. Negative VRP suggests hedging with puts is cheap.</dd>
 </dl>
 
+<h3>v3.2 Derived Series</h3>
+<dl>
+  <dt><code>id20_z</code> <span class="tag">id20 z-score</span></dt>
+  <dd>How many standard deviations id20 is below its own 252-session rolling mean. Requires a minimum of 120 sessions of history.</dd>
+  <dd>Formula: (id20 − rolling_mean(id20, 252)) / rolling_std(id20, 252). A value of −1.0 or below is the Mode B arm threshold (see §4.1).</dd>
+
+  <dt><code>on20_mom</code> <span class="tag">overnight momentum</span></dt>
+  <dd>The 5-session change in the overnight stream: on20 minus on20 five sessions ago.</dd>
+  <dd>When this turns negative in MONITOR state (threshold: −5%), it means the overnight bid is fading — institutions are no longer supporting the gap-up. Used as a sizing tilt only; never as a transition trigger (see §5).</dd>
+
+  <dt><code>dd20</code> <span class="tag">20-session drawdown</span></dt>
+  <dd>How far the current close is below the highest close over the past 20 sessions: close / max(close, 20) − 1. Always ≤ 0.</dd>
+  <dd>Used by the optional CRASH_GATE flag to identify when the market is already in a deep decline (≤ −10%), suppressing the ABS arm to avoid a panic-exit at the low.</dd>
+
+  <dt><code>vix_slope</code> <span class="tag">VIX term structure</span></dt>
+  <dd>VIX 3-month (VXVCLS) minus VIX spot (VIXCLS), sourced from FRED. Positive = VIX3M > VIX = term structure in contango (normal, calm conditions). Negative = inversion = near-term fear exceeds longer-term fear (stress signal).</dd>
+  <dd>Coincident indicator only — not a direct input to state transitions. A positive slope during a sell-off suggests the correction is orderly rather than panicked.</dd>
+
+  <dt><code>real_chg20</code> <span class="tag">real yield change</span></dt>
+  <dd>The 20-session change in the US 10-year real yield (nominal yield DGS10 minus 10-year breakeven inflation T10YIE), both from FRED. Expressed in percentage points; displayed in basis points (1pp = 100bp).</dd>
+  <dd>Context indicator for growth/tech sector headwinds. Rising real yields compress valuations of long-duration assets like semiconductors. Not used in sizing or transitions.</dd>
+</dl>
+
 <h3>Trend &amp; Momentum Indicators</h3>
 <dl>
   <dt><code>ma20</code> / <code>ma50</code> / <code>ma200</code> <span class="tag">moving averages</span></dt>
@@ -158,11 +181,16 @@
 <h2>3. Key Signals</h2>
 <table>
   <tr><th>Signal</th><th>Formula</th><th>Interpretation</th></tr>
-  <tr><td><code>id20</code></td><td>Σ id<sub>t</sub> over 20 sessions</td><td>Decision series; negative = distribution</td></tr>
+  <tr><td><code>id20</code></td><td>Σ id<sub>t</sub> over 20 sessions</td><td>Core decision series; negative = distribution</td></tr>
+  <tr><td><code>id20_z</code></td><td>(id20 − mean) / std, 252-session baseline</td><td>Mode B arm: z &lt; −1.0 AND ret20 &gt; +2%</td></tr>
   <tr><td><code>on20</code></td><td>Σ on<sub>t</sub> over 20 sessions</td><td>Overnight bid; fading confirms divergence</td></tr>
-  <tr><td><code>ret20</code></td><td>Σ log-return over 20 sessions</td><td>Total trend; used in ARM/ACC conditions</td></tr>
-  <tr><td><code>rv20</code></td><td>Annualised 20-day realised vol</td><td>Position sizing (full size below 50%)</td></tr>
+  <tr><td><code>on20_mom</code></td><td>on20 − on20.shift(5)</td><td>Sizing tilt in MONITOR if &lt; −5% (display only)</td></tr>
+  <tr><td><code>ret20</code></td><td>Σ log-return over 20 sessions</td><td>Total trend; gating condition for arm and acc</td></tr>
+  <tr><td><code>rv20</code></td><td>Annualised 20-day realised vol</td><td>Position sizing (full size below rv20_p90)</td></tr>
   <tr><td><code>vrp</code></td><td>iv30 − rv20</td><td>Variance risk premium; negative = options cheap</td></tr>
+  <tr><td><code>dd20</code></td><td>close / max(close, 20) − 1</td><td>Drawdown from 20-session high; used by CRASH_GATE</td></tr>
+  <tr><td><code>vix_slope</code></td><td>VXVCLS − VIXCLS (FRED)</td><td>VIX term structure; positive = contango (calm)</td></tr>
+  <tr><td><code>real_chg20</code></td><td>Δ20d (DGS10 − T10YIE) in pp (FRED)</td><td>Real yield change; rising = headwind for tech</td></tr>
 </table>
 
 <h2>4. State Machine</h2>
@@ -177,12 +205,24 @@
 </table>
 
 <h3>4.1 Arm Condition (RISK_ON → MONITOR)</h3>
-<p>Either of:</p>
+<p>The arm condition uses a <strong>hybrid rule</strong>: Mode B OR (Mode A AND collapse gate). Both modes must be evaluated every session; arm fires if either branch is satisfied.</p>
+
+<h3>Mode A — Absolute threshold</h3>
+<p>Mode A has two sub-conditions (either is sufficient):</p>
 <ul>
-  <li><strong>DIV arm:</strong> <code>id20 &lt; 0</code> AND <code>ret20 &gt; +2%</code> (distribution while trend still up)</li>
-  <li><strong>ABS arm:</strong> <code>id20 &lt; −3%</code> (extreme intraday selling regardless of trend)</li>
+  <li><strong>DIV arm:</strong> <code>id20 &lt; 0</code> AND <code>ret20 &gt; +2%</code> — intraday selling has turned net negative while the 20-day trend is still positive. The classic divergence pattern.</li>
+  <li><strong>ABS arm:</strong> <code>id20 &lt; −3%</code> — extreme intraday selling regardless of trend direction.</li>
 </ul>
-<p>Arm condition must be true at open; does not fire during ACCUM.</p>
+<p>Mode A alone fires too frequently in bull markets (26% of sessions in a benign 2025 grind) because intraday returns are structurally below overnight returns. To filter noise, Mode A requires the <strong>collapse gate</strong>:</p>
+<p><strong>Collapse gate:</strong> <code>id20_max60 − id20 ≥ 8%</code> — the current id20 must have fallen at least 8 percentage points from its 60-session high. This ensures Mode A only arms when there has been a genuine deterioration in intraday flow, not a brief dip in an ongoing uptrend.</p>
+
+<h3>Mode B — Relative (z-score) threshold</h3>
+<p><strong>Mode B arm:</strong> <code>id20_z &lt; −1.0</code> AND <code>ret20 &gt; +2%</code> — intraday selling is more than 1 standard deviation below its own 252-session historical mean, while the overall trend is still positive. Mode B is regime-aware: it adjusts its threshold to the current distribution, making it robust in both low- and high-id20 environments. It does not require the collapse gate.</p>
+<p>Mode B alone can miss exits where a melt-up inflates the z-score baseline (the Jun 2026 exit had z = −0.62, above the −1.0 threshold). This is why the hybrid combines both modes.</p>
+
+<h3>Hybrid rule summary</h3>
+<p><code>armed = Mode B OR (Mode A AND collapse_gate)</code></p>
+<p>When the two modes disagree, the dashboard shows a banner explaining which is active. Arm condition does not fire while ACCUM overlay is active.</p>
 
 <h3>4.2 Exit Trigger (MONITOR → EXIT)</h3>
 <p><strong>Exec-into-strength:</strong> <code>id<sub>t</sub> &gt; +1%</code> OR <code>ret<sub>t</sub> &gt; +1.5%</code> while armed condition is still true.</p>
@@ -203,8 +243,19 @@
   <li><strong>MA20 recovery:</strong> 2 consecutive sessions above MA20 while <code>id20 &gt; 0</code></li>
 </ul>
 
+<h3>4.6 Short Permission</h3>
+<p>A short position is permitted only when all three conditions are simultaneously true:</p>
+<ol>
+  <li><strong>Price below 50-DMA on elevated volume:</strong> <code>close &lt; MA50</code> AND <code>volume &gt; 1.5 × vol30</code> — price has broken the intermediate trend line with institutional participation.</li>
+  <li><strong>Intraday flow negative:</strong> <code>id20 &lt; 0</code> — institutions are net sellers intraday.</li>
+  <li><strong>Overnight bid absent:</strong> <code>on20 &lt; 0</code> — retail/news-driven overnight demand has also turned negative, removing the structural overnight support.</li>
+</ol>
+<p>All three together indicate a broad-based decline rather than a sector rotation. The dashboard shows a per-condition pass/fail breakdown in the Current State card.</p>
+
 <h2>5. Position Sizing</h2>
-<p>Sizing is conditional on volatility regime: <code>size_base = min(1, 0.40 / rv20)</code> only when <code>rv20 &gt; rv20_p90</code> (90th percentile of trailing 252-session rv20); otherwise <code>size_base = 1.0</code>. This scales down only in extreme-vol regimes, preserving full exposure during normal and low-vol melt-ups. Final size = <code>size_base × state_multiplier</code>. EXIT = 0%.</p>
+<p><strong>Base size:</strong> <code>size_base = min(1, 0.40 / rv20)</code> only when <code>rv20 &gt; rv20_p90</code> (90th percentile of trailing 252-session rv20); otherwise <code>size_base = 1.0</code>. This scales down only in extreme-volatility regimes, preserving full exposure during normal and low-volatility melt-ups.</p>
+<p><strong>on20_mom tilt:</strong> When the state is MONITOR and <code>on20_mom &lt; −5%</code> (overnight momentum fading), suggested size is multiplied by 0.8 — a 20% reduction. This is a display-only suggestion; it does not affect state transitions.</p>
+<p><strong>State multipliers:</strong> RISK_ON = 1.0 (before vol scaling), MONITOR = 0.5, ACCUM = 1.0, EXIT = 0. Final size = <code>size_base × state_multiplier × on20_mom_factor</code>.</p>
 
 <h2>6. Backtest Assumptions</h2>
 <ul>
@@ -217,7 +268,9 @@
 </ul>
 
 <h2>7. Data Sources</h2>
-<p>OHLCV data: yfinance → stooq → stockanalysis (fallback chain). Updated daily via GitHub Actions at 22:15 UTC on weekdays. IV30 and P/C OI are entered manually in <code>data/manual.json</code>.</p>
+<p><strong>OHLCV (price data):</strong> yfinance → stooq → stockanalysis (fallback chain). Updated daily via GitHub Actions at 22:15 UTC on weekdays. If all sources fail, the last committed snapshot is used and a stale-data banner appears.</p>
+<p><strong>Volatility / sentiment (FRED, no API key required):</strong> VIXCLS (VIX spot), VXVCLS (VIX 3-month), DGS10 (10-year nominal yield), T10YIE (10-year breakeven inflation). These are fetched via the FRED graph CSV API. If FRED is unavailable, <code>vix_slope</code> and <code>real_chg20</code> show as n/a — they are context-only and do not affect state transitions.</p>
+<p><strong>Options data (manual):</strong> IV30 and P/C OI are entered weekly in <code>data/manual.json</code>. A staleness date is shown on the dashboard.</p>
 
 <h2>8. Known Failure Modes (Verified)</h2>
 
