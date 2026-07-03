@@ -58,6 +58,7 @@ function sparseLabels(dates: string[], maxLabels = 12): string[] {
 export function initSignalChart(data: SignalData): void {
   const canvas = document.getElementById('signal-chart') as HTMLCanvasElement;
   const { dates, id20, on20 } = data.series;
+  const asia_on20 = data.series.asia_on20 ?? [];
   const entries = buildBandEntries(dates, data.bands);
 
   const datasets: ChartDataset<'line'>[] = [
@@ -80,6 +81,20 @@ export function initSignalChart(data: SignalData): void {
       tension: 0.3,
     },
   ];
+
+  // Optional asia_on20 overlay — only added when TSM/EWY data is available
+  if (asia_on20.some(v => v !== null)) {
+    datasets.push({
+      label: 'asia_on20 (Asia overnight)',
+      data: asia_on20 as number[],
+      borderColor: '#a78bfa',
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      tension: 0.3,
+    } as ChartDataset<'line'>);
+  }
 
   new Chart(canvas, {
     type: 'line',

@@ -1,0 +1,24 @@
+[
+  {
+    "ticker": "NVDA",
+    "report_date": "2026-05-20",
+    "type": "AMC",
+    "label": "NVDA FQ1 2026 — beat, sold (M2)"
+  },
+  {
+    "ticker": "AVGO",
+    "report_date": "2026-06-03",
+    "type": "AMC",
+    "label": "AVGO FQ2 2026 — beat, -14% reaction (M2)"
+  },
+  {
+    "ticker": "MU",
+    "report_date": "2026-06-24",
+    "type": "AMC",
+    "label": "MU FQ3 2026 — EPS $25.11 vs $20.20 est; +15.74% pop, full retrace T+5 (M1)",
+    "pop": 0.1574,
+    "retrace_date": "2026-07-02",
+    "vol_flag": true,
+    "grade": "DISTRIBUTION-CONFIRM"
+  }
+]

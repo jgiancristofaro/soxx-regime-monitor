@@ -15,12 +15,13 @@ import pytest
 ROOT = Path(__file__).parent.parent.parent
 FIXTURE = Path(__file__).parent / "fixtures" / "soxx_2026.csv"
 
+import json
 import sys
 sys.path.insert(0, str(ROOT))
 
 from pipeline.sources import load_fixture
 from pipeline.state_machine import (
-    ARM_Z, COLLAPSE_GATE, ONMOM_TILT, ONMOM_FACTOR, SLIPPAGE_BPS,
+    ARM_Z, COLLAPSE_GATE, ONMOM_TILT, ONMOM_FACTOR, SLIPPAGE_BPS, GAP_THR,
     compute_signals, _compute_derived, _run_state_machine, _run_backtest,
     STATE_POS,
 )
@@ -464,4 +465,254 @@ def test_v9_on20_mom_not_in_transitions():
     assert "on20_mom" not in src_body, (
         "V9: on20_mom found in _run_state_machine body — explicitly forbidden (P2). "
         "on20_mom is a sizing tilt only; it must never influence state transitions."
+    )
+
+
+def test_v10_gap_quality_not_in_transitions():
+    """V10: gap_quality/asia_on20/tsm_on/ewy_on must NOT appear in _run_state_machine (v3.3 isolation)."""
+    import inspect
+    src = inspect.getsource(_run_state_machine)
+    src_body = src.split('"""', 2)[-1]
+    for forbidden in ["gap_quality", "asia_on20", "hollow_count20", "tsm_on", "ewy_on"]:
+        assert forbidden not in src_body, (
+            f"V10: '{forbidden}' found in _run_state_machine — explicitly forbidden. "
+            "v3.3 Asia diagnostics are display-only; they must never influence state transitions."
+        )
+
+
+# ── W1–W8: Change Order v3.3 golden record ───────────────────────────────────
+#
+# W1-W6 require live network access (TSM/EWY/QQQ data from yfinance).
+# W7 verifies the earnings_reactions.json seed. W8 uses the fixture only.
+# Network tests are skipped gracefully if yfinance is unavailable.
+
+def _try_fetch_companion(ticker: str, days: int = 500):
+    """Return DataFrame or None if network unavailable."""
+    try:
+        from pipeline.sources import fetch_companion_ohlcv
+        return fetch_companion_ohlcv(ticker, days=days)
+    except Exception:
+        return None
+
+
+def _companion_on_series(ticker: str) -> "pd.Series | None":
+    """Fetch overnight return series for a companion ticker (full history, then filter).
+
+    Computes overnight returns on the FULL fetched history (so Jan 2 has a valid prior close),
+    then filters to 2026-01-02..07-01. Returns None if network unavailable.
+    """
+    df = _try_fetch_companion(ticker, days=600)
+    if df is None:
+        return None
+    on = df["open"] / df["close"].shift(1) - 1
+    return on.loc["2026-01-02":"2026-07-01"]
+
+
+def _companion_df_2026(ticker: str) -> "pd.DataFrame | None":
+    """Fetch full OHLCV DataFrame for a companion ticker filtered to 2026-01-02..07-01."""
+    df = _try_fetch_companion(ticker, days=600)
+    if df is None:
+        return None
+    return df.loc["2026-01-02":"2026-07-01"]
+
+
+@pytest.fixture(scope="module")
+def tsm_on_2026():
+    s = _companion_on_series("TSM")
+    if s is None:
+        pytest.skip("TSM data unavailable (network required for W1-W6)")
+    return s
+
+
+@pytest.fixture(scope="module")
+def ewy_on_2026():
+    s = _companion_on_series("EWY")
+    if s is None:
+        pytest.skip("EWY data unavailable (network required for W1-W6)")
+    return s
+
+
+@pytest.fixture(scope="module")
+def qqq_on_2026():
+    s = _companion_on_series("QQQ")
+    if s is None:
+        pytest.skip("QQQ data unavailable (network required for W3)")
+    return s
+
+
+@pytest.fixture(scope="module")
+def tsm_df_2026():
+    df = _companion_df_2026("TSM")
+    if df is None:
+        pytest.skip("TSM data unavailable (network required for W6)")
+    return df
+
+
+@pytest.fixture(scope="module")
+def soxx_2026_on(df_full):
+    """SOXX overnight returns filtered to 2026-01-02..07-01 (derived from full fixture)."""
+    df_d = _compute_derived(df_full.copy())
+    return df_d.loc["2026-01-02":"2026-07-01"]["on"]
+
+
+def test_w1_corr_soxx_tsm(soxx_2026_on, tsm_on_2026):
+    """W1: corr(SOXX_on, TSM_on) 2026-01-02..07-01 ≈ +0.85 (±0.03)."""
+    aligned = pd.concat([soxx_2026_on, tsm_on_2026], axis=1, join="inner").dropna()
+    aligned.columns = ["soxx", "tsm"]
+    corr = float(aligned["soxx"].corr(aligned["tsm"]))
+    assert corr == pytest.approx(0.85, abs=0.03), (
+        f"W1: corr(SOXX_on, TSM_on) = {corr:.3f}, expected ≈ +0.85 (±0.03)"
+    )
+
+
+def test_w2_corr_soxx_ewy(soxx_2026_on, ewy_on_2026):
+    """W2: corr(SOXX_on, EWY_on) 2026-01-02..07-01 ≈ +0.82 (±0.03)."""
+    aligned = pd.concat([soxx_2026_on, ewy_on_2026], axis=1, join="inner").dropna()
+    aligned.columns = ["soxx", "ewy"]
+    corr = float(aligned["soxx"].corr(aligned["ewy"]))
+    assert corr == pytest.approx(0.82, abs=0.03), (
+        f"W2: corr(SOXX_on, EWY_on) = {corr:.3f}, expected ≈ +0.82 (±0.03)"
+    )
+
+
+def test_w3_r2_soxx_on_regression(soxx_2026_on, tsm_on_2026, ewy_on_2026, qqq_on_2026):
+    """W3: R² of SOXX_on ~ TSM_on + EWY_on + QQQ_on ≈ 0.89 (±0.03)."""
+    aligned = pd.concat(
+        [soxx_2026_on, tsm_on_2026, ewy_on_2026, qqq_on_2026], axis=1, join="inner"
+    ).dropna()
+    aligned.columns = ["soxx", "tsm", "ewy", "qqq"]
+
+    y = aligned["soxx"].values
+    X = np.column_stack([np.ones(len(aligned)), aligned["tsm"].values,
+                         aligned["ewy"].values, aligned["qqq"].values])
+    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+    y_hat = X @ beta
+    ss_res = np.sum((y - y_hat) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r2 = float(1 - ss_res / ss_tot)
+
+    assert r2 == pytest.approx(0.89, abs=0.03), (
+        f"W3: R²(SOXX_on ~ TSM+EWY+QQQ) = {r2:.3f}, expected ≈ 0.89 (±0.03)"
+    )
+
+
+def test_w4_hollow_gap_dates(df_full, tsm_on_2026, ewy_on_2026):
+    """W4: Hollow up-gap dates 2026 = exactly {2026-03-30, 2026-04-20, 2026-04-23}."""
+    df_d = _compute_derived(df_full.copy())
+    soxx_ytd = df_d.loc["2026-01-02":"2026-07-01"].copy()
+
+    tsm_on = tsm_on_2026.reindex(soxx_ytd.index)
+    ewy_on = ewy_on_2026.reindex(soxx_ytd.index)
+
+    gap_up = soxx_ytd["on"] > GAP_THR
+    asia_gap = (tsm_on > GAP_THR) | (ewy_on > GAP_THR)
+    hollow_mask = gap_up & ~asia_gap
+
+    hollow_dates = set(soxx_ytd.index[hollow_mask].strftime("%Y-%m-%d"))
+    expected = {"2026-03-30", "2026-04-20", "2026-04-23"}
+
+    assert hollow_dates == expected, (
+        f"W4: Hollow dates = {sorted(hollow_dates)}, expected {sorted(expected)}"
+    )
+
+
+def test_w5_gap_counts_2026(df_full, tsm_on_2026, ewy_on_2026):
+    """W5: Up-gap counts 2026-01-02..07-01 = 65 total / 62 confirmed / 3 hollow."""
+    df_d = _compute_derived(df_full.copy())
+    soxx_ytd = df_d.loc["2026-01-02":"2026-07-01"].copy()
+
+    tsm_on = tsm_on_2026.reindex(soxx_ytd.index)
+    ewy_on = ewy_on_2026.reindex(soxx_ytd.index)
+
+    gap_up = soxx_ytd["on"] > GAP_THR
+    asia_gap = (tsm_on > GAP_THR) | (ewy_on > GAP_THR)
+    confirmed = gap_up & asia_gap
+    hollow = gap_up & ~asia_gap
+
+    total_gaps = int(gap_up.sum())
+    confirmed_gaps = int(confirmed.sum())
+    hollow_gaps = int(hollow.sum())
+
+    assert total_gaps == 65, f"W5: Total up-gaps = {total_gaps}, expected 65"
+    assert confirmed_gaps == 62, f"W5: Confirmed up-gaps = {confirmed_gaps}, expected 62"
+    assert hollow_gaps == 3, f"W5: Hollow up-gaps = {hollow_gaps}, expected 3"
+
+
+def test_w6_tsm_cumulative_on_vs_id(tsm_on_2026, tsm_df_2026):
+    """W6: TSM 2026 cumulative overnight ≈ +37pts vs intraday ≈ +6pts (±2)."""
+    on = tsm_on_2026
+    id_ = tsm_df_2026["close"] / tsm_df_2026["open"] - 1
+
+    cum_on = float(on.sum() * 100)
+    cum_id = float(id_.sum() * 100)
+
+    assert cum_on == pytest.approx(37, abs=2), (
+        f"W6: TSM cumul on = {cum_on:.1f}pts, expected ≈ +37pts (±2)"
+    )
+    assert cum_id == pytest.approx(6, abs=2), (
+        f"W6: TSM cumul id = {cum_id:.1f}pts, expected ≈ +6pts (±2)"
+    )
+
+
+def test_w7_mu_earnings_grade():
+    """W7: MU FQ3 2026-06-24 grade = DISTRIBUTION-CONFIRM per earnings_reactions.json seed."""
+    reactions_path = ROOT / "data" / "earnings_reactions.json"
+    if not reactions_path.exists():
+        pytest.skip("data/earnings_reactions.json not found")
+
+    with open(reactions_path) as f:
+        records = json.load(f)
+
+    mu = next(
+        (r for r in records if r.get("ticker") == "MU" and r.get("report_date") == "2026-06-24"),
+        None,
+    )
+    assert mu is not None, "W7: MU 2026-06-24 not found in earnings_reactions.json"
+    assert mu.get("grade") == "DISTRIBUTION-CONFIRM", (
+        f"W7: MU grade = {mu.get('grade')}, expected DISTRIBUTION-CONFIRM"
+    )
+    assert mu.get("pop", 0) == pytest.approx(0.1574, abs=0.002), (
+        f"W7: MU pop = {mu.get('pop'):.4f}, expected ≈ +15.74%"
+    )
+    assert mu.get("vol_flag") is True, (
+        f"W7: MU vol_flag = {mu.get('vol_flag')}, expected True (retrace vol ≥ pop vol)"
+    )
+    assert mu.get("retrace_date") == "2026-07-02", (
+        f"W7: MU retrace_date = {mu.get('retrace_date')}, expected 2026-07-02 (T+5)"
+    )
+
+
+def test_w8_position_logic_isolation(result):
+    """W8: With TSM/EWY data absent (soxx_2026.csv fixture), v3.2 golden record is byte-identical.
+
+    Proves v3.3 is cosmetic to the state machine — gap_quality/asia_on20 columns
+    are absent when tsm_on/ewy_on are not injected, and all trade/state outputs are unchanged.
+    """
+    # Verify the fixture has no companion columns
+    df_check = load_fixture(str(FIXTURE))
+    assert "tsm_on" not in df_check.columns, "W8: fixture should not have tsm_on"
+    assert "ewy_on" not in df_check.columns, "W8: fixture should not have ewy_on"
+
+    # gap_quality and asia_on20 must be null when TSM/EWY not present
+    assert result["today"].get("gap_quality") is None, (
+        "W8: gap_quality should be null without TSM/EWY injection"
+    )
+    assert result["today"].get("asia_on20") is None, (
+        "W8: asia_on20 should be null without TSM/EWY injection"
+    )
+    asia_series = result["series"].get("asia_on20", [])
+    assert all(v is None for v in asia_series), (
+        "W8: asia_on20 series should be all-null without TSM/EWY injection"
+    )
+
+    # v3.2 golden record must be preserved
+    assert result["state"]["machine"] == "EXIT", (
+        f"W8: Expected EXIT state, got {result['state']['machine']}"
+    )
+    assert result["state"]["position_multiplier"] == 0.0, "W8: Expected 0.0 position"
+
+    jun18_exits = [t for t in result["trades"] if t["date"] == "2026-06-18" and t["action"] == "EXIT"]
+    assert len(jun18_exits) == 1, "W8: Jun 18 exec-into-strength EXIT must be present"
+    assert jun18_exits[0]["price"] == pytest.approx(639.45, abs=0.01), (
+        f"W8: Jun 18 EXIT price = {jun18_exits[0]['price']}, expected 639.45"
     )

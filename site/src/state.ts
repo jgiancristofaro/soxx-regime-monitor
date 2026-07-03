@@ -166,6 +166,9 @@ function renderMetricRows(data: SignalData): void {
     ? (today.vix_slope >= 0 ? '+' : '') + today.vix_slope.toFixed(2) + ' (VIX3M−VIX)'
     : 'n/a';
 
+  const gapQualityStr = today.gap_quality != null ? today.gap_quality : 'n/a';
+  const hollowStr = today.hollow_count20 != null ? today.hollow_count20 + '/20' : 'n/a';
+
   const metrics: Array<[string, string]> = [
     ['RSI 14',      today.rsi14.toFixed(1)],
     ['MA20',        '$' + today.ma20.toFixed(0)],
@@ -175,6 +178,8 @@ function renderMetricRows(data: SignalData): void {
     ['Turb',        today.turb.toFixed(2)],
     ['Dist-20',     today.dist20 + 'd'],
     ['VIX Slope',   vixSlopeStr],
+    ['Gap Quality', gapQualityStr],
+    ['Hollow/20',   hollowStr],
   ];
 
   for (const [k, v] of metrics) {

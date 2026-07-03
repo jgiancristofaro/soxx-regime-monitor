@@ -68,10 +68,11 @@
 <h2>1. Overview</h2>
 <p>The monitor tracks a <strong>return-decomposition signal</strong> on SOXX (iShares Semiconductor ETF). Each daily return is split into:</p>
 <ul>
-  <li><strong>Overnight (on)</strong> = log(open<sub>t</sub> / close<sub>t-1</sub>) — retail/news-driven gap</li>
-  <li><strong>Intraday (id)</strong> = log(close<sub>t</sub> / open<sub>t</sub>) — institutional intraday flow</li>
+  <li><strong>Overnight (on)</strong> = log(open<sub>t</sub> / close<sub>t-1</sub>) — Asia-session institutional flow and overnight futures (see K-findings below)</li>
+  <li><strong>Intraday (id)</strong> = log(close<sub>t</sub> / open<sub>t</sub>) — US-session institutional intraday flow</li>
 </ul>
-<p>A 20-session rolling sum of each gives <code>on20</code> and <code>id20</code>. Persistent negative <code>id20</code> while <code>on20</code> stays positive signals distribution (institutions selling into overnight strength). This divergence precedes drawdowns.</p>
+<p>A 20-session rolling sum of each gives <code>on20</code> and <code>id20</code>. Persistent negative <code>id20</code> while <code>on20</code> stays positive signals distribution: US-session institutions selling into the overnight bid. This divergence precedes drawdowns.</p>
+<p><strong>K-findings (verified 2026 YTD): The overnight channel is Asia-institutional, not retail.</strong> Regressing SOXX overnight returns on TSM, EWY, and QQQ overnight returns explains R²=0.89 of variance; pairwise: corr(SOXX_on, TSM_on)=+0.85, corr(SOXX_on, EWY_on)=+0.82. TSM's 2026 YTD decomposition: +37pts overnight (Taiwan-session price discovery lands in the US gap window) vs. +6pts intraday. The structural positive bias in <code>on20</code> is therefore Asia-session drift — which is why <code>on20</code> is interpreted relative to itself rather than zero-anchored. The Jun 2026 divergence is correctly read as US desks distributing into an Asian institutional bid; the Korea-led overnight fade (Jun 23–Jul 1: SOXX on-sum −7.4%, EWY −13.4%) is more informative than any "retail tiring" framing.</p>
 
 <h2>2. Defined Terms</h2>
 <p>All metrics used in this dashboard, in plain English.</p>
@@ -79,12 +80,12 @@
 <h3>Daily Return Components</h3>
 <dl>
   <dt><code>on</code> <span class="tag">overnight return</span></dt>
-  <dd>The price change from the previous day's close to today's open — what happened while the market was shut.</dd>
-  <dd>Formula: log(open<sub>t</sub> / close<sub>t−1</sub>). Driven by news, macro data, and retail order flow.</dd>
+  <dd>The price change from the previous day's close to today's open — what happened while the US market was shut.</dd>
+  <dd>Formula: log(open<sub>t</sub> / close<sub>t−1</sub>). Predominantly driven by Asia-session institutional order flow (Taiwan and Korean semiconductor markets trade while the US is closed) and overnight futures positioning. Not retail — see K-findings in §1.</dd>
 
   <dt><code>id</code> <span class="tag">intraday return</span></dt>
-  <dd>The price change from today's open to today's close — what happened during the trading session.</dd>
-  <dd>Formula: log(close<sub>t</sub> / open<sub>t</sub>). Dominated by institutional order flow.</dd>
+  <dd>The price change from today's open to today's close — what happened during the US trading session.</dd>
+  <dd>Formula: log(close<sub>t</sub> / open<sub>t</sub>). Dominated by US-session institutional order flow. This is the primary signal: net positive id20 = US institutions buying intraday; net negative = US institutions distributing.</dd>
 
   <dt><code>ret</code> <span class="tag">total daily return</span></dt>
   <dd>The full day's log-return: previous close to current close. Equal to <code>on + id</code>.</dd>
@@ -97,8 +98,8 @@
   <dd>When negative, institutions have been net sellers during the trading day over the past month, even if the stock is up. This is the distribution signal that arms the monitor.</dd>
 
   <dt><code>on20</code> <span class="tag">20-day overnight stream</span></dt>
-  <dd>The sum of the last 20 overnight returns. Captures the retail/news-driven bid.</dd>
-  <dd>When <code>on20</code> stays positive while <code>id20</code> turns negative, it means institutions are quietly selling into overnight gaps — the defining divergence pattern.</dd>
+  <dd>The sum of the last 20 overnight returns. Captures the Asia-institutional overnight bid (structural drift from Taiwan and Korean markets).</dd>
+  <dd>When <code>on20</code> stays positive while <code>id20</code> turns negative, US-session institutions are distributing into the Asia-institutional bid — the defining divergence pattern. When the Asia bid itself fades (tracked via <code>on20_mom</code>), the divergence is resolving.</dd>
 
   <dt><code>ret20</code> <span class="tag">20-day total return</span></dt>
   <dd>The cumulative log-return over the last 20 sessions. Measures the current 1-month trend.</dd>
@@ -120,6 +121,20 @@
   <dt><code>vrp</code> <span class="tag">variance risk premium</span></dt>
   <dd>Implied vol minus realized vol: <code>iv30 − rv20</code>.</dd>
   <dd>Positive = options are expensive relative to recent moves (normal; sellers get paid a premium). Negative = options are cheap, which often happens during sharp sell-offs when realized vol spikes above implied. Negative VRP suggests hedging with puts is cheap.</dd>
+</dl>
+
+<h3>v3.3 Asia Diagnostics</h3>
+<dl>
+  <dt><code>gap_quality</code> <span class="tag">overnight gap classification</span></dt>
+  <dd>Classifies each SOXX session as: <code>none</code> (no overnight gap &gt; +0.3%), <code>confirmed</code> (SOXX gapped AND TSM or EWY also gapped &gt; +0.3% — Asia-backed), or <code>hollow</code> (SOXX gapped but neither TSM nor EWY gapped — US-futures only).</dd>
+  <dd>Of 65 SOXX up-gaps in 2026 YTD, 62 were Asia-confirmed and 3 were hollow. The 3 hollow gaps (2026-03-30, 04-20, 04-23) faded −1.29% same-day intraday on average vs. +0.46% follow-through for confirmed gaps. Diagnostic only (n=3 on hollow side).</dd>
+
+  <dt><code>asia_on20</code> <span class="tag">Asia overnight 20d stream</span></dt>
+  <dd>The equal-weighted 20-session sum of TSM and EWY overnight returns: 0.5 × tsm_on + 0.5 × ewy_on, rolling 20.</dd>
+  <dd>Shown as an optional overlay on the decomposition chart to separate the Asia institutional component of SOXX's overnight return. Context only — not a state machine input.</dd>
+
+  <dt><code>hollow_count20</code> <span class="tag">hollow gap count (trailing 20d)</span></dt>
+  <dd>Number of hollow up-gaps in the past 20 sessions. A rising count while id20 is negative adds qualitative weight to the distribution read — Asia is no longer endorsing the US gap-ups.</dd>
 </dl>
 
 <h3>v3.2 Derived Series</h3>
@@ -298,6 +313,27 @@
 
 <div class="note">
   <strong>Disclaimer:</strong> Research and education only. Not investment advice. Signals are in-sample on n=3 episodes. No warranty.
+</div>
+
+<h2>9. Strategic Watch Triggers (Documented Judgment Rules)</h2>
+<p>The following events warrant a manual review of the strategic-capital tier. These are documented judgment rules, not code inputs to the state machine.</p>
+<ul>
+  <li>
+    <strong>Hyperscaler Q2 calls (late July 2026) — capex language:</strong>
+    Any "capex plateau", "digestion", "efficiency", or "resale of excess capacity" language from MSFT, META, GOOGL, or AMZN on their Q2 earnings calls → documented guidance is to cut the strategic cap 0.6 → 0.4.
+    The first crack appeared in Meta's June 2026 announcement that it will resell excess AI compute capacity (M3 finding); the Q2 calls are the confirmation venue.
+  </li>
+  <li>
+    <strong>TrendForce DRAM/NAND contract quotes (weekly):</strong>
+    The first flat-or-down weekly print in TrendForce's DRAM or NAND contract price table while Korea capacity announcements remain standing → memory-leg-over flag; strategic cap review mandatory that week.
+  </li>
+  <li>
+    <strong>SK Hynix US listing vs. Seoul line (developing microstructure watch):</strong>
+    SK Hynix's US ADR listing (~$29.4B raise, late June 2026) will gradually migrate part of memory price discovery into US trading hours over time, slowly shifting what <code>id20</code> and <code>on20</code> measure. No action defined until the effect is measurable; track quarterly.
+  </li>
+</ul>
+<div class="note">
+  These are qualitative triggers for a manual strategic-capital review — not inputs to the state machine, not automatic position rules, and not investment advice. Triggers are written as "review mandatory" rather than "action mandatory" because the correct response depends on the full weight of evidence at the time.
 </div>
 
 <h2>Appendix A — v3.2 Pressure Test Results</h2>

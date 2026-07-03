@@ -106,6 +106,93 @@ def _fetch_fred_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _fetch_asia_ohlcv(df: pd.DataFrame, days: int = 600) -> pd.DataFrame:
+    """Inject TSM and EWY overnight returns as tsm_on/ewy_on columns (continue-on-error).
+
+    Aligned to SOXX trading dates via reindex; NaN for unmatched sessions.
+    Absent columns → state_machine.py skips gap_quality computation gracefully.
+    """
+    sys.path.insert(0, str(ROOT))
+    from pipeline.sources import fetch_companion_ohlcv
+
+    df = df.copy()
+    for ticker, col_name in [("TSM", "tsm_on"), ("EWY", "ewy_on")]:
+        try:
+            comp = fetch_companion_ohlcv(ticker, days=days)
+            on = comp["open"] / comp["close"].shift(1) - 1
+            df[col_name] = on.reindex(df.index)
+            print(f"  {ticker}: {len(comp)} rows, last {comp.index[-1].date()}")
+        except Exception as e:
+            print(f"  {ticker} skipped (non-blocking): {e}")
+
+    return df
+
+
+def _grade_earnings_reactions(reactions_path: "Path") -> list:
+    """Load earnings_reactions.json, grade any ungraded events, write back, return list.
+
+    Grade formula: pop = close(T+1)/close(T) - 1
+                   retrace = first session in T+2..T+5 where close < close(T)
+                   vol_flag = volume(retrace_day) >= volume(pop_day)
+                   grade = DISTRIBUTION-CONFIRM if pop > 5% and retrace and vol_flag else normal
+    """
+    if not reactions_path.exists():
+        return []
+
+    with open(reactions_path) as f:
+        records = json.load(f)
+
+    sys.path.insert(0, str(ROOT))
+    from pipeline.sources import fetch_companion_ohlcv
+
+    modified = False
+    for rec in records:
+        if "grade" in rec:
+            continue
+        ticker = rec.get("ticker")
+        report_date = rec.get("report_date")
+        if not ticker or not report_date:
+            continue
+        try:
+            comp = fetch_companion_ohlcv(ticker, days=120)
+            t0 = pd.Timestamp(report_date)
+            dates = sorted(comp.index)
+            t_idx = next((i for i, d in enumerate(dates) if d >= t0), None)
+            if t_idx is None or t_idx + 1 >= len(dates):
+                continue
+            pre_close = float(comp.loc[dates[t_idx], "close"])
+            t1 = dates[t_idx + 1]
+            pop = float(comp.loc[t1, "close"] / pre_close - 1)
+            pop_vol = float(comp.loc[t1, "volume"])
+            rec["pop"] = round(pop, 4)
+            retrace_date = None
+            retrace_vol = None
+            for j in range(t_idx + 2, min(t_idx + 6, len(dates))):
+                d = dates[j]
+                if float(comp.loc[d, "close"]) < pre_close:
+                    retrace_date = d.strftime("%Y-%m-%d")
+                    retrace_vol = float(comp.loc[d, "volume"])
+                    break
+            rec["retrace_date"] = retrace_date
+            vol_flag = bool(retrace_vol is not None and retrace_vol >= pop_vol)
+            rec["vol_flag"] = vol_flag
+            rec["grade"] = (
+                "DISTRIBUTION-CONFIRM"
+                if pop > 0.05 and retrace_date is not None and vol_flag
+                else "normal"
+            )
+            modified = True
+            print(f"  Graded {ticker} {report_date}: {rec['grade']} (pop={pop:.2%})")
+        except Exception as e:
+            print(f"  Earnings grading skipped {ticker} {report_date}: {e}")
+
+    if modified:
+        with open(reactions_path, "w") as f:
+            json.dump(records, f, indent=2)
+
+    return records
+
+
 def _fetch_hourly_bars(df_daily: pd.DataFrame) -> None:
     """Best-effort: fetch last-5-session 60-minute bars and append to data/hourly.csv."""
     try:
@@ -175,6 +262,10 @@ def main():
     print("Fetching FRED data...")
     df = _fetch_fred_columns(df)
 
+    # Asia overnight companion data (continue-on-error — injects tsm_on/ewy_on)
+    print("Fetching Asia companion data (TSM, EWY)...")
+    df = _fetch_asia_ohlcv(df)
+
     # Hourly bar capture (optional, continue-on-error)
     print("Fetching hourly bars...")
     _fetch_hourly_bars(df)
@@ -185,11 +276,29 @@ def main():
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     _append_options_history(manual, today_str)
 
+    # Grade earnings reactions (continue-on-error — writes back to earnings_reactions.json)
+    print("Grading earnings reactions...")
+    reactions = _grade_earnings_reactions(DATA_DIR / "earnings_reactions.json")
+
     print("Computing signals...")
     result = compute_signals(df, manual)
     result["generated_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     result["data_stale"] = stale
-    result["events"] = events
+
+    # Merge chart events with graded earnings reactions
+    reaction_events = [
+        {
+            "date": r["report_date"],
+            "label": r.get("label", f"{r['ticker']} earnings"),
+            "type": "earnings_reaction",
+            "ticker": r["ticker"],
+            "grade": r.get("grade"),
+            "pop": r.get("pop"),
+        }
+        for r in reactions
+        if r.get("grade")
+    ]
+    result["events"] = events + reaction_events
 
     signals_path.parent.mkdir(parents=True, exist_ok=True)
     with open(signals_path, "w") as f:

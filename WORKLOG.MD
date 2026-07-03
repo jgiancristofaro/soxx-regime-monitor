@@ -20,6 +20,7 @@
 | [009](#009) | 2026-07-02 | Renamed states ARMED→MONITOR, FIRED→EXIT; added Defined Terms to methodology |
 | [010](#010) | 2026-07-02 | Change Order v3.1: hybrid arm, ACCUM stops, slippage, conditional sizing, N1-N8 tests |
 | [011](#011) | 2026-07-02 | Change Order v3.2: derived series, FRED, sizing tilt, short-perm, ENSEMBLE, CRASH_GATE, V1-V9 |
+| [012](#012) | 2026-07-03 | Change Order v3.3: Asia diagnostics, earnings reactions, methodology relabeling, W1-W8 |
 
 ---
 
@@ -213,5 +214,33 @@ Implemented CHANGE_ORDER_v3.2.md in full (10 changes). Summary of decisions:
 **TypeScript fix:** `theme.ts` STATUS_COLOR record was missing the `'grey'` key (introduced when `CheckStatus` union was expanded to include both `'gray'` and `'grey'`). Added `grey: '#6b7280'`. Build passes cleanly.
 
 **Live pipeline output (Jul 2, 2026):** id20=−12.2%, on20=+6.3%, on20_mom=−10.8%, vix_slope=+2.57, real_chg20=+14bp, state=EXIT since Jun 18. 8 checklist cards confirmed. 53/53 tests pass.
+
+---
+
+<a name="012"></a>
+## [012] 2026-07-03 — Change Order v3.3: Asia diagnostics, earnings reactions, methodology relabeling
+
+v3.3 contains **zero changes to position logic, state transitions, thresholds, or sizing.** All changes are interpretation text, context diagnostics, data plumbing, or annotations. W8 (isolation test) confirms the v3.2 golden record is byte-identical when TSM/EWY data is deleted.
+
+**Motivating findings:**
+
+K-findings (Asia overnight mechanism, verified 2026 YTD): corr(SOXX_on, TSM_on)=+0.85, corr(SOXX_on, EWY_on)=+0.82, R²(SOXX_on ~ TSM+EWY+QQQ)=0.89. TSM decomposition: +37pts overnight (Taiwan-session discovery lands in US gap) vs +6pts intraday. The structural positive bias in on20 is Asia-session drift, not retail. The Jun 23–Jul 1 overnight fade was Korea-led (EWY on-sum −13.4%, SOXX −7.4%, QQQ only −1.8%).
+
+M-findings (MU round-trip, Jun 24 AMC): EPS $25.11 vs $20.20 est; +15.74% pop Jun 25 (83.0M shares); full retrace by Jul 2 = T+5 on 86.4M shares (retrace vol > pop vol) → DISTRIBUTION-CONFIRM. Third consecutive bellwether beat-sold in 2026 (NVDA May 20, AVGO Jun 3, MU Jun 25). Meta resell-excess-AI-compute announcement (Jun 2026) = first tangible capex-ceiling evidence (M3).
+
+**Pipeline changes:**
+- `sources.py`: Added `fetch_companion_ohlcv(ticker, days)` — yfinance fetch for TSM/EWY/QQQ; raises on failure (caller wraps).
+- `compute.py`: Added `_fetch_asia_ohlcv(df)` injecting `tsm_on`/`ewy_on` columns (continue-on-error, aligned to SOXX dates via reindex); added `_grade_earnings_reactions(path)` auto-grading events from `data/earnings_reactions.json` (formula: pop > +5%, retrace T+2..T+5, vol_flag = retrace vol ≥ pop vol → DISTRIBUTION-CONFIRM); integrated both into `main()` after FRED fetch; graded events merged into `result["events"]`.
+- `state_machine.py`: Added `GAP_THR = 0.003` module constant; `_compute_derived` adds `gap_quality` (string: none/confirmed/hollow), `asia_on20` (0.5×tsm+0.5×ewy rolling 20), `hollow_count20` (rolling 20 hollow-gap count) when `tsm_on`/`ewy_on` present — columns absent when not injected; `compute_signals` outputs these in `today` and `series.asia_on20` (all null when absent).
+
+**Data:** Created `data/earnings_reactions.json` seed with NVDA (2026-05-20 AMC), AVGO (2026-06-03 AMC), MU (2026-06-24 AMC). MU pre-graded DISTRIBUTION-CONFIRM (pop=+15.74%, retrace_date=2026-07-02, vol_flag=True). NVDA/AVGO will be auto-graded on first pipeline run.
+
+**Tests:** Added V10 (static guard: gap_quality/asia_on20/hollow_count20/tsm_on/ewy_on not in `_run_state_machine`) and W1–W8. W1-W6 require live network (TSM/EWY/QQQ); W7 verifies MU seed; W8 uses soxx_2026.csv fixture only. Network tests skip gracefully if offline.
+
+**Frontend:** `types.ts` adds `gap_quality`/`asia_on20`/`hollow_count20` to `TodaySignals`; optional `asia_on20?` to `Series`; optional fields (`ticker`, `grade`, `pop`) to `Event`. `state.ts` adds "Gap Quality" and "Hollow/20" to the metric grid. `charts.ts` adds optional `asia_on20` dashed violet overlay to decomp panel (only rendered when series has non-null values).
+
+**Methodology:** §1/§2 updated to relabel overnight channel as Asia-institutional (K1/K2 evidence; replaces "retail/news-driven" throughout); v3.3 derived series subsection added to §2; new §9 documents strategic-tier watch triggers (hyperscaler Q2 capex language, TrendForce DRAM/NAND, SK Hynix US listing watch).
+
+**Key invariant:** The `_run_state_machine` function contains none of the v3.3 symbols (enforced by V10). With TSM/EWY data absent, `compute_signals` produces null for all v3.3 fields and the state/trades/equity output is byte-identical to v3.2.
 
 ---

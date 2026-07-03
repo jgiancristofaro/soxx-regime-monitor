@@ -83,6 +83,21 @@ def fetch_ohlcv(days: int = 420) -> pd.DataFrame:
     raise RuntimeError("All OHLCV sources failed:\n" + "\n".join(errors))
 
 
+def fetch_companion_ohlcv(ticker: str, days: int = 600) -> pd.DataFrame:
+    """Fetch OHLCV for a companion ticker (TSM, EWY, QQQ) via yfinance only.
+
+    Raises on failure; caller should wrap with continue-on-error semantics.
+    """
+    start = (datetime.today() - timedelta(days=days)).strftime("%Y-%m-%d")
+    raw = yf.download(ticker, start=start, auto_adjust=True, progress=False)
+    if raw.empty:
+        raise ValueError(f"{ticker}: empty result from yfinance")
+    raw.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in raw.columns]
+    raw.index.name = "date"
+    raw.index = pd.to_datetime(raw.index)
+    return _validate(raw[["open", "high", "low", "close", "volume"]], f"yfinance-{ticker}")
+
+
 def load_fixture(path: str) -> pd.DataFrame:
     """Load a local CSV fixture (for tests or stale-data fallback)."""
     df = pd.read_csv(path, parse_dates=["date"]).set_index("date").sort_index()

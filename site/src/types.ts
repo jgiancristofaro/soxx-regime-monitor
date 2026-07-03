@@ -45,6 +45,10 @@ export interface TodaySignals {
   dist20: number;
   vrp: number;
   iv30_asof: string;
+  // v3.3 Asia overnight diagnostics (null when TSM/EWY not fetched)
+  gap_quality: string | null;
+  asia_on20: number | null;
+  hollow_count20: number | null;
 }
 
 export interface Band {
@@ -88,12 +92,17 @@ export interface Series {
   equity_strategy: (number | null)[];
   equity_bh: (number | null)[];
   smh_close?: (number | null)[];
+  asia_on20?: (number | null)[];
 }
 
 export interface Event {
   date: string;
   label: string;
   type: string;
+  // Optional fields for earnings_reaction type
+  ticker?: string;
+  grade?: string | null;
+  pop?: number | null;
 }
 
 export interface SignalData {

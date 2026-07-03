@@ -30,6 +30,8 @@ ONMOM_FACTOR     = 0.8     # multiply suggested_size by this when tilt is active
 ENSEMBLE_ARM     = False   # 2-of-3 vote at N=15/20/25; -4.1pts 2026, +2.2pts H2-2025 (P4)
 CRASH_GATE       = False   # suppress ABS arm when dd20 ≤ CRASH_GATE_DD (P5)
 CRASH_GATE_DD    = -0.10   # knife-edge threshold; ON only after multi-year calibration
+# ── v3.3 Asia overnight diagnostics (display only, never position logic) ──
+GAP_THR          = 0.003   # minimum SOXX overnight return to count as an up-gap (0.3%)
 # ────────────────────────────────────────────────────────────────────────────
 
 RISK_ON, MONITOR, EXIT, WARMUP, ACCUM = "RISK_ON", "MONITOR", "EXIT", "WARMUP", "ACCUM"
@@ -101,6 +103,14 @@ def _compute_derived(df: pd.DataFrame) -> pd.DataFrame:
         df["vix_slope"] = np.nan
     if "real_chg20" not in df.columns:
         df["real_chg20"] = np.nan
+    # Asia overnight diagnostics (v3.3 — injected by compute.py; absent when TSM/EWY not fetched)
+    # gap_quality/asia_on20/hollow_count20 MUST NOT appear in _run_state_machine (test V10 enforces)
+    if "tsm_on" in df.columns and "ewy_on" in df.columns:
+        _gap_up = df["on"] > GAP_THR
+        _asia_gap = (df["tsm_on"] > GAP_THR) | (df["ewy_on"] > GAP_THR)
+        df["gap_quality"] = np.where(~_gap_up, "none", np.where(_asia_gap, "confirmed", "hollow"))
+        df["asia_on20"] = (0.5 * df["tsm_on"] + 0.5 * df["ewy_on"]).rolling(20).sum()
+        df["hollow_count20"] = ((df["on"] > GAP_THR) & ~_asia_gap).rolling(20).sum()
     return df
 
 
@@ -473,6 +483,19 @@ def compute_signals(
         except Exception:
             return None
 
+    # v3.3 Asia overnight diagnostics (null when TSM/EWY not injected into df)
+    gap_quality_out: str | None = None
+    if "gap_quality" in last_ytd.index:
+        _gq = last_ytd["gap_quality"]
+        if _gq is not None and not (isinstance(_gq, float) and np.isnan(_gq)):
+            gap_quality_out = str(_gq)
+    asia_on20_out = _safe(last_ytd["asia_on20"], 4) if "asia_on20" in last_ytd.index else None
+    hollow_count20_out: int | None = None
+    if "hollow_count20" in last_ytd.index:
+        _hc = last_ytd["hollow_count20"]
+        if not (isinstance(_hc, float) and np.isnan(_hc)):
+            hollow_count20_out = int(_hc)
+
     # Build history
     ytd_date_strs = [d.strftime("%Y-%m-%d") for d in df_ytd.index]
     close_by_date = dict(zip(ytd_date_strs, [round(float(v), 2) for v in df_ytd["close"].values]))
@@ -557,9 +580,12 @@ def compute_signals(
             "turb":       _safe(last["turb"], 4),
             "ar1":        _safe(last["ar1"], 4),
             "rsi14":      _safe(last["rsi14"], 4),
-            "dist20":     int(last["dist20"]) if not np.isnan(last["dist20"]) else None,
-            "vrp":        vrp,
-            "iv30_asof":  manual.get("iv30_asof"),
+            "dist20":       int(last["dist20"]) if not np.isnan(last["dist20"]) else None,
+            "vrp":          vrp,
+            "iv30_asof":    manual.get("iv30_asof"),
+            "gap_quality":  gap_quality_out,
+            "asia_on20":    asia_on20_out,
+            "hollow_count20": hollow_count20_out,
         },
         "bands": bands,
         "trades": trades,
@@ -575,7 +601,8 @@ def compute_signals(
             "rv20":     [_safe(v, 4) for v in df_ytd["rv20"]],
             "equity_strategy": eq_s,
             "equity_bh":       eq_bh,
-            "smh_close":       [None] * len(df_ytd),
+            "smh_close":  [None] * len(df_ytd),
+            "asia_on20":  [_safe(v, 4) for v in df_ytd["asia_on20"]] if "asia_on20" in df_ytd.columns else [None] * len(df_ytd),
         },
         "checklist": _build_checklist(last, last_ytd, vrp, manual),
         "events": [],
