@@ -49,6 +49,11 @@ export interface TodaySignals {
   gap_quality: string | null;
   asia_on20: number | null;
   hollow_count20: number | null;
+  // v3.5 Mode B display diagnostics
+  id20_pctl120: number | null;
+  id20_is_sample_low: boolean;
+  id20_is_sample_high: boolean;
+  id20_history_months: number;
 }
 
 export interface Band {
@@ -93,6 +98,7 @@ export interface Series {
   equity_bh: (number | null)[];
   smh_close?: (number | null)[];
   asia_on20?: (number | null)[];
+  id20_pctl120?: (number | null)[];
 }
 
 export interface Event {

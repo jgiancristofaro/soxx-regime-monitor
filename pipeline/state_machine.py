@@ -111,6 +111,11 @@ def _compute_derived(df: pd.DataFrame) -> pd.DataFrame:
         df["gap_quality"] = np.where(~_gap_up, "none", np.where(_asia_gap, "confirmed", "hollow"))
         df["asia_on20"] = (0.5 * df["tsm_on"] + 0.5 * df["ewy_on"]).rolling(20).sum()
         df["hollow_count20"] = ((df["on"] > GAP_THR) & ~_asia_gap).rolling(20).sum()
+    # v3.5 Mode B display diagnostics (DISPLAY ONLY — V11 guard enforces not in _run_state_machine)
+    # id20_pctl120: percentile rank of id20 within trailing 120 sessions (min 60)
+    df["id20_pctl120"] = df["id20"].rolling(120, min_periods=60).apply(
+        lambda x: float((x < x[-1]).mean()), raw=True
+    )
     return df
 
 
@@ -496,6 +501,24 @@ def compute_signals(
         if not (isinstance(_hc, float) and np.isnan(_hc)):
             hollow_count20_out = int(_hc)
 
+    # v3.5 sample-extreme markers (compared against FULL loaded history, excl. last 5 sessions)
+    _id20_series = df_full["id20"].dropna()
+    _id20_excl = _id20_series.iloc[:-5] if len(_id20_series) > 5 else _id20_series
+    _id20_hist_min = float(_id20_excl.min()) if len(_id20_excl) > 0 else np.nan
+    _id20_hist_max = float(_id20_excl.max()) if len(_id20_excl) > 0 else np.nan
+    _id20_last_val = float(last_ytd["id20"]) if not np.isnan(last_ytd["id20"]) else None
+    id20_is_sample_low = bool(
+        _id20_last_val is not None
+        and not np.isnan(_id20_hist_min)
+        and _id20_last_val <= _id20_hist_min
+    )
+    id20_is_sample_high = bool(
+        _id20_last_val is not None
+        and not np.isnan(_id20_hist_max)
+        and _id20_last_val >= _id20_hist_max
+    )
+    _id20_history_months = max(1, round(len(_id20_series) / 21))
+
     # Build history
     ytd_date_strs = [d.strftime("%Y-%m-%d") for d in df_ytd.index]
     close_by_date = dict(zip(ytd_date_strs, [round(float(v), 2) for v in df_ytd["close"].values]))
@@ -586,6 +609,11 @@ def compute_signals(
             "gap_quality":  gap_quality_out,
             "asia_on20":    asia_on20_out,
             "hollow_count20": hollow_count20_out,
+            # v3.5 Mode B display diagnostics
+            "id20_pctl120":        _safe(last_ytd["id20_pctl120"], 4) if "id20_pctl120" in last_ytd.index else None,
+            "id20_is_sample_low":  id20_is_sample_low,
+            "id20_is_sample_high": id20_is_sample_high,
+            "id20_history_months": _id20_history_months,
         },
         "bands": bands,
         "trades": trades,
@@ -602,7 +630,8 @@ def compute_signals(
             "equity_strategy": eq_s,
             "equity_bh":       eq_bh,
             "smh_close":  [None] * len(df_ytd),
-            "asia_on20":  [_safe(v, 4) for v in df_ytd["asia_on20"]] if "asia_on20" in df_ytd.columns else [None] * len(df_ytd),
+            "asia_on20":     [_safe(v, 4) for v in df_ytd["asia_on20"]] if "asia_on20" in df_ytd.columns else [None] * len(df_ytd),
+            "id20_pctl120":  [_safe(v, 4) for v in df_ytd["id20_pctl120"]] if "id20_pctl120" in df_ytd.columns else [None] * len(df_ytd),
         },
         "checklist": _build_checklist(last, last_ytd, vrp, manual),
         "events": [],

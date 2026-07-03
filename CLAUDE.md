@@ -172,6 +172,10 @@ CRASH_GATE   = False   # suppress ABS arm when dd20 ≤ CRASH_GATE_DD (default O
 CRASH_GATE_DD = -0.10  # knife-edge; ON only after multi-year calibration
 # v3.3 additions
 GAP_THR      = 0.003   # minimum SOXX overnight return to count as up-gap (Asia diagnostics only)
+# v3.5 additions (display only — not in _run_state_machine, enforced by V11)
+# id20_pctl120  — computed in _compute_derived; rolling 120-session percentile rank (min_periods=60)
+# id20_is_sample_low/high — computed in compute_signals; True when id20 ≤/≥ full-history min/max excl. last 5 sessions
+# id20_history_months — approximate history length in months (sessions / 21)
 ```
 
 ---

@@ -235,6 +235,21 @@
 <p><strong>Mode B arm:</strong> <code>id20_z &lt; −1.0</code> AND <code>ret20 &gt; +2%</code> — intraday selling is more than 1 standard deviation below its own 252-session historical mean, while the overall trend is still positive. Mode B is regime-aware: it adjusts its threshold to the current distribution, making it robust in both low- and high-id20 environments. It does not require the collapse gate.</p>
 <p>Mode B alone can miss exits where a melt-up inflates the z-score baseline (the Jun 2026 exit had z = −0.62, above the −1.0 threshold). This is why the hybrid combines both modes.</p>
 
+<h3>Mode B — Statistical caveat (v3.5)</h3>
+<p><strong>Z1 — The 252-day baseline spans a verified structural break.</strong> id20 in H2-2025 vs. 2026 YTD: mean +1.1% vs. +5.8%, σ 3.9% vs. 6.6%, max +8.3% vs. +23.5%. A two-sample KS test (n=126/113) yields D = 0.37, far above the 1% critical threshold of ≈0.17. These are statistically distinct distributions. <strong>A z = −1.6 in July 2026 and a z = −1.6 in February 2026 do not mean the same thing.</strong> Do not interpret the magnitude of <code>id20_z</code> as comparable across regimes.</p>
+<p><strong>Z2 — But the contamination largely self-cancels in practice.</strong> Because the AI boom inflated the baseline mean and standard deviation together, the id20 level implied by z = −1 stayed narrow all year: −3.2% (Feb 4), −2.8% (Apr 24), −2.6% (Jun 9/18), −2.9% (Jul 1). Mode B currently behaves as a <em>soft absolute threshold near −2.7%</em>. Its June non-arms reflect id20 = −2.2% and −0.4% not reaching that line — not baseline drift. The z-score trigger input remains valid; only its interpretation as "unusually extreme vs. history" is regime-contaminated.</p>
+<p><strong>Z3 — Tested alternatives are all rejected; the dilemma is structural.</strong> With one structural break and 13 months of data, no regime-relative statistic can be both fast (catches the Jun 18 exit) and quiet (no false-positive arms in the H2-2025 grind). Do not revisit these before 2019–2024 SOXX daily data is available for out-of-sample validation:</p>
+<table>
+  <tr><th>Alternative</th><th>Reason rejected</th></tr>
+  <tr><td>Robust z (median/MAD, 252d)</td><td>0 false-positive days in benign windows, but Jun 18 arm delayed to Jun 24 — too slow</td></tr>
+  <tr><td>z vs. 120-day window</td><td>22 false-positive arm days in H2-2025 benign grind; self-referential in flat regimes</td></tr>
+  <tr><td>120-day percentile rank &lt; 10%</td><td>17 false-positive arm days in H2-2025</td></tr>
+  <tr><td>Collapse gate alone (no Mode B)</td><td>27 false-positive arm days; collapse gate needs Mode A pairing it already has</td></tr>
+  <tr><td>Re-tuning the −1.0 threshold</td><td>Would be the fifth in-sample iteration; rejected without multi-year data</td></tr>
+</table>
+<p><strong>Z4 — A distribution-free extremity marker is now displayed.</strong> id20 at −12.2% after the Jul 2, 2026 session fell below the minimum of both regimes (H2-2025 min −10.4%; prior 2026 min −7.6%) — the most intense US-hours institutional selling in the 13-month sample, valid under any baseline assumption. The dashboard displays an N-month sample-low badge on the id20 card when this threshold is crossed.</p>
+<p>Regime identification of the current cycle (AI demand, hyperscaler capex) belongs to the strategic tier — TSMC revenue, memory pricing indices, hyperscaler capex language — not to any z-score formulation (see §9).</p>
+
 <h3>Hybrid rule summary</h3>
 <p><code>armed = Mode B OR (Mode A AND collapse_gate)</code></p>
 <p>When the two modes disagree, the dashboard shows a banner explaining which is active. Arm condition does not fire while ACCUM overlay is active.</p>

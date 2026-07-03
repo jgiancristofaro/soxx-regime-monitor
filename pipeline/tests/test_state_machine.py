@@ -716,3 +716,157 @@ def test_w8_position_logic_isolation(result):
     assert jun18_exits[0]["price"] == pytest.approx(639.45, abs=0.01), (
         f"W8: Jun 18 EXIT price = {jun18_exits[0]['price']}, expected 639.45"
     )
+
+
+# ── V11 + X1–X5: Change Order v3.5 golden record ────────────────────────────
+#
+# V11: static guard (no data needed).
+# X1–X2: network-optional (require H2-2025 SOXX live data).
+# X3–X5: fixture-based.
+
+def _ks_2samp_stat(x: np.ndarray, y: np.ndarray) -> float:
+    """Two-sample KS statistic (scipy not in requirements)."""
+    all_vals = np.sort(np.concatenate([x, y]))
+    cdf1 = np.searchsorted(np.sort(x), all_vals, side="right") / len(x)
+    cdf2 = np.searchsorted(np.sort(y), all_vals, side="right") / len(y)
+    return float(np.max(np.abs(cdf1 - cdf2)))
+
+
+def test_v11_pctl120_not_in_transitions():
+    """V11: id20_pctl120/id20_is_sample_low/id20_is_sample_high must NOT appear in _run_state_machine."""
+    import inspect
+    src = inspect.getsource(_run_state_machine)
+    src_body = src.split('"""', 2)[-1]
+    for forbidden in ["id20_pctl120", "id20_is_sample_low", "id20_is_sample_high"]:
+        assert forbidden not in src_body, (
+            f"V11: '{forbidden}' found in _run_state_machine body — explicitly forbidden. "
+            "v3.5 percentile/sample-extreme diagnostics are display-only."
+        )
+
+
+def test_x1_ks_regime_statistic():
+    """X1: KS(id20 H2-2025 vs 2026-01-20..07-01) ≈ 0.37 (±0.02) — documents Z1 structural break.
+
+    Requires live SOXX data (network). Skipped offline.
+    """
+    try:
+        from pipeline.sources import fetch_companion_ohlcv
+        df_soxx = fetch_companion_ohlcv("SOXX", days=600)
+    except Exception:
+        pytest.skip("SOXX live data unavailable (network required for X1)")
+
+    df_d = _compute_derived(df_soxx)
+    h2_2025 = df_d.loc["2025-07-01":"2025-12-31", "id20"].dropna().values
+    ytd_2026 = df_d.loc["2026-01-20":"2026-07-01", "id20"].dropna().values
+
+    if len(h2_2025) < 50 or len(ytd_2026) < 50:
+        pytest.skip(f"X1: insufficient data (H2-2025={len(h2_2025)}, 2026={len(ytd_2026)})")
+
+    ks = _ks_2samp_stat(h2_2025, ytd_2026)
+    assert ks == pytest.approx(0.37, abs=0.04), (
+        f"X1: KS(id20 H2-2025 vs 2026 YTD) = {ks:.3f}, expected ≈ 0.37 (±0.04). "
+        "KS > 0.17 rejects sameness at 1% level for these sample sizes."
+    )
+
+
+def test_x2_implied_arm_line():
+    """X2: Implied Mode B arm line (mean−1σ) ≈ −3.2% / −2.6% / −2.9% on key dates — documents Z2.
+
+    Requires live SOXX data (network). Skipped offline.
+    """
+    try:
+        from pipeline.sources import fetch_companion_ohlcv
+        df_soxx = fetch_companion_ohlcv("SOXX", days=700)
+    except Exception:
+        pytest.skip("SOXX live data unavailable (network required for X2)")
+
+    df_d = _compute_derived(df_soxx)
+    _mean252 = df_d["id20"].rolling(252, min_periods=120).mean()
+    _std252  = df_d["id20"].rolling(252, min_periods=120).std()
+    implied_arm = _mean252 - 1.0 * _std252
+
+    checks = [
+        ("2026-02-04", -0.032),
+        ("2026-06-18", -0.026),
+        ("2026-07-01", -0.029),
+    ]
+    for date_str, expected in checks:
+        ts = pd.Timestamp(date_str)
+        if ts not in implied_arm.index:
+            continue
+        val = float(implied_arm.loc[ts])
+        assert val == pytest.approx(expected, abs=0.020), (
+            f"X2: implied arm line on {date_str} = {val:.4f}, expected ≈ {expected:.3f} (±2pp). "
+            "Documenting Z2: mean/std co-inflation keeps threshold narrow despite structural break."
+        )
+
+
+def test_x3_pctl120_jul01(df_full):
+    """X3: id20_pctl120 on 2026-07-01 ≈ 0.02 (±0.02) — 98th pctile of selling pressure."""
+    df_d = _compute_derived(df_full.copy())
+    val = float(df_d.loc[pd.Timestamp("2026-07-01"), "id20_pctl120"])
+    assert val == pytest.approx(0.02, abs=0.02), (
+        f"X3: id20_pctl120 on 2026-07-01 = {val:.4f}, expected ≈ 0.02 (±0.02). "
+        "Only ~2% of trailing 120 sessions had id20 worse than −6.5%."
+    )
+
+
+def test_x4_sample_low_flag(result, df_full):
+    """X4: id20_is_sample_low FALSE on 2026-07-01 (id20 −6.5% > fixture min ≈ −10.4%).
+
+    The fixture-only min reaches −10.4% during the Jun 2026 distribution period (consistent
+    with H2-2025 min cited in Z4; live pipeline with full history gives similar values).
+    Verifies compute_signals correctly emits the sample-low flag; TRUE case (Jul 2, −12.2%)
+    requires live data and is confirmed by running the live pipeline post-market on 2026-07-02.
+    """
+    df_d = _compute_derived(df_full.copy())
+    hist_min = float(df_d["id20"].iloc[:-5].min())
+    # Fixture min (excl. last 5) is the Jun 2026 distribution trough, around −10% to −11%
+    assert hist_min < -0.080, (
+        f"X4: fixture min = {hist_min:.4f} should be below −8% (June distribution trough)"
+    )
+    assert hist_min > -0.125, (
+        f"X4: fixture min = {hist_min:.4f} unexpectedly extreme (sanity check)"
+    )
+
+    # id20 on Jul 1 should be strictly above the fixture min → sample_low = False
+    id20_jul1 = float(df_d.loc[pd.Timestamp("2026-07-01"), "id20"])
+    assert id20_jul1 > hist_min, (
+        f"X4: Jul 1 id20 = {id20_jul1:.4f} should exceed fixture min {hist_min:.4f}"
+    )
+
+    # compute_signals must emit False for id20_is_sample_low
+    assert result["today"]["id20_is_sample_low"] is False, (
+        "X4: id20_is_sample_low should be False on 2026-07-01 fixture"
+    )
+    assert result["today"]["id20_is_sample_high"] is False, (
+        "X4: id20_is_sample_high should be False on 2026-07-01 fixture"
+    )
+
+    # id20_history_months must be a positive integer
+    assert result["today"]["id20_history_months"] >= 1, "X4: id20_history_months must be >= 1"
+
+
+def test_x5_position_logic_isolation_v35(result):
+    """X5: v3.5 features (pctl120, sample-low) do not alter the v3.2 golden record.
+
+    id20_pctl120 is computed in _compute_derived and present in df, but V11 confirms
+    _run_state_machine never reads it. Trades and states are byte-identical.
+    """
+    # v3.5 fields must be present
+    assert "id20_pctl120" in result["today"], "X5: id20_pctl120 missing from today"
+    assert "id20_is_sample_low" in result["today"], "X5: id20_is_sample_low missing from today"
+    assert "id20_pctl120" in result["series"], "X5: id20_pctl120 missing from series"
+
+    # v3.2 golden record unchanged
+    assert result["state"]["machine"] == "EXIT", (
+        f"X5: Expected EXIT state, got {result['state']['machine']}"
+    )
+    jun18_exits = [t for t in result["trades"] if t["date"] == "2026-06-18" and t["action"] == "EXIT"]
+    assert len(jun18_exits) == 1, "X5: Jun 18 EXIT must be present (v3.5 must not alter trades)"
+    assert jun18_exits[0]["price"] == pytest.approx(639.45, abs=0.01), (
+        f"X5: Jun 18 EXIT price = {jun18_exits[0]['price']}, expected 639.45"
+    )
+    feb06_reenter = [t for t in result["trades"] if t["date"] == "2026-02-06" and t["action"] == "REENTER"]
+    assert len(feb06_reenter) == 1, "X5: Feb 06 REENTER must be present"
+    assert feb06_reenter[0]["price"] == pytest.approx(348.51, abs=0.01)

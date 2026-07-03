@@ -1,6 +1,12 @@
 import type { SignalData } from './types';
 import { STATE_COLOR, STATE_LABEL, STATE_DARK_TEXT, fmtDate, fmtPct } from './theme';
 
+function ordinalSuffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 function setText(id: string, text: string): HTMLElement {
   const el = document.getElementById(id)!;
   el.textContent = text;
@@ -142,6 +148,25 @@ export function renderChecklist(data: SignalData): void {
     val.className = 'check-value';
     val.style.color = statusColor;
     val.textContent = display;
+
+    // v3.5: pair id20_z with its short-window percentile
+    if (item.id === 'id20_z' && data.today.id20_pctl120 != null) {
+      const pctlRound = Math.max(1, Math.round(data.today.id20_pctl120 * 100));
+      const pctlSpan = document.createElement('span');
+      pctlSpan.textContent = ' · ' + ordinalSuffix(pctlRound) + ' pctl (120d)';
+      pctlSpan.style.cssText = 'font-size:0.8em;color:#9ca3af;font-weight:400;';
+      val.appendChild(pctlSpan);
+    }
+
+    // v3.5: sample-extreme badge on id20 card
+    if (item.id === 'id20' && (data.today.id20_is_sample_low || data.today.id20_is_sample_high)) {
+      const mo = data.today.id20_history_months ?? 13;
+      const badgeText = data.today.id20_is_sample_low ? `${mo}-mo sample low` : `${mo}-mo sample high`;
+      const badge = document.createElement('span');
+      badge.textContent = ' · ' + badgeText;
+      badge.style.cssText = 'font-size:0.7rem;font-weight:700;color:#a78bfa;margin-left:0.1em;text-transform:uppercase;letter-spacing:0.03em;';
+      val.appendChild(badge);
+    }
 
     const note = document.createElement('span');
     note.className = 'check-note';

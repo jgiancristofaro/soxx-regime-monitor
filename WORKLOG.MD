@@ -21,6 +21,7 @@
 | [010](#010) | 2026-07-02 | Change Order v3.1: hybrid arm, ACCUM stops, slippage, conditional sizing, N1-N8 tests |
 | [011](#011) | 2026-07-02 | Change Order v3.2: derived series, FRED, sizing tilt, short-perm, ENSEMBLE, CRASH_GATE, V1-V9 |
 | [012](#012) | 2026-07-03 | Change Order v3.3: Asia diagnostics, earnings reactions, methodology relabeling, W1-W8 |
+| [013](#013) | 2026-07-03 | Change Order v3.5: Mode B caveat, id20_pctl120, sample-extreme marker, X1-X5+V11 |
 
 ---
 
@@ -242,5 +243,33 @@ M-findings (MU round-trip, Jun 24 AMC): EPS $25.11 vs $20.20 est; +15.74% pop Ju
 **Methodology:** §1/§2 updated to relabel overnight channel as Asia-institutional (K1/K2 evidence; replaces "retail/news-driven" throughout); v3.3 derived series subsection added to §2; new §9 documents strategic-tier watch triggers (hyperscaler Q2 capex language, TrendForce DRAM/NAND, SK Hynix US listing watch).
 
 **Key invariant:** The `_run_state_machine` function contains none of the v3.3 symbols (enforced by V10). With TSM/EWY data absent, `compute_signals` produces null for all v3.3 fields and the state/trades/equity output is byte-identical to v3.2.
+
+---
+
+## [013] 2026-07-03 — Change Order v3.5: Mode B statistical caveat, id20 percentile, sample-extreme marker
+
+Owner-initiated pressure test of Mode B statistical validity: is the 252-session z-score baseline valid when 2026 YTD is a structurally different regime from H2-2025?
+
+**Findings confirmed (see CHANGE_ORDER_v3.5.md for full derivation):**
+- Z1: KS D=0.37 (n=126/113) rejects sameness far beyond the 1% level. id20 H2-2025 vs 2026 YTD are distinct distributions; z magnitudes are not comparable across regimes.
+- Z2: Mean/std co-inflation kept the implied arm line stable near −2.7% all year (Feb −3.2%, Jun −2.6%, Jul −2.9%). Mode B behaves as a soft absolute threshold; its June non-arms are because id20 never reached that line, not because the baseline drifted.
+- Z3: All five tested alternatives (robust z, 120d z, percentile rank, collapse gate alone, re-tuning) rejected — speed/quiet tradeoff is structurally unsolvable with 13 months and one structural break. Recorded to prevent re-litigation before multi-year data exists.
+- Z4: id20 −12.2% after Jul 2 is below the minimum of BOTH periods (H2-2025 min −10.4%, prior 2026 min −7.6%) — the only distribution-free extremity statement valid under any baseline assumption.
+
+**Decision: zero changes to Mode B parameters.** ARM_Z, the 252d window, and the hybrid rule unchanged. This would be the fifth in-sample iteration without out-of-sample data.
+
+**Pipeline changes (display/interpretation only):**
+- `state_machine.py`: `_compute_derived` adds `id20_pctl120` = percentile rank of id20 within trailing 120 sessions (min_periods=60). `compute_signals` adds `today.id20_pctl120`, `today.id20_is_sample_low`, `today.id20_is_sample_high`, `today.id20_history_months`; `series.id20_pctl120`.
+- Sample-extreme logic: compares `id20` against `min/max(df_full["id20"], excluding last 5 sessions)` to avoid self-comparison. The "last 5 excluded" window prevents anchoring when id20 is sliding to new extremes.
+
+**Frontend changes (display only):**
+- `types.ts`: added `id20_pctl120`, `id20_is_sample_low`, `id20_is_sample_high`, `id20_history_months` to `TodaySignals`; `id20_pctl120?` to `Series`.
+- `state.ts`: checklist id20_z card now shows z-score paired with pctl, e.g. "−2.54σ · 2nd pctl (120d)"; id20 card shows a purple "N-mo sample low/high" badge when the flag is true.
+
+**Tests:** V11 (static guard: pctl120/is_sample_low/high not in `_run_state_machine`); X1-X2 (network-optional: KS stat and implied arm line); X3-X5 (fixture-based: pctl120 on Jul 1, sample-low FALSE on Jul 1, golden record unchanged). Total: 69 tests expected (62 prior + V11 + X1-X5 as 5, but X1/X2 skip offline).
+
+**Methodology:** Added "Mode B — Statistical caveat (v3.5)" subsection in §4.1 with Z1-Z4 findings and the Z3 alternatives-rejected table. Strategic-tier regime identification restatement. No position logic described on this page was changed.
+
+**Key invariant preserved:** V11 static guard + X5 confirm all new symbols are absent from `_run_state_machine`. Golden record byte-identical (v3.2 trades/states/sizes unchanged on identical input).
 
 ---
