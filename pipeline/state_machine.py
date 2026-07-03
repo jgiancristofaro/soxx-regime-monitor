@@ -601,6 +601,7 @@ def _build_checklist(last: pd.Series, last_ytd: pd.Series, vrp: float | None, ma
 
     id20     = _safe(last_ytd["id20"], 4) if "id20" in last_ytd.index else None
     id20_z   = _safe(last_ytd["id20_z"], 4) if "id20_z" in last_ytd.index else None
+    ret20_cb = _safe(last_ytd["ret20"], 4) if "ret20" in last_ytd.index else None
     on20     = _safe(last_ytd["on20"], 4) if "on20" in last_ytd.index else None
     on20_mom = _safe(last_ytd["on20_mom"], 4) if "on20_mom" in last_ytd.index else None
     ma20     = _safe(last["ma20"], 2)
@@ -658,7 +659,8 @@ def _build_checklist(last: pd.Series, last_ytd: pd.Series, vrp: float | None, ma
                 else "gray"
             ),
             "note": (
-                "Mode B armed — relative distribution vs 1-yr baseline" if (id20_z is not None and id20_z < ARM_Z)
+                "Mode B armed — z-score below threshold and trend still positive" if (id20_z is not None and id20_z < ARM_Z and ret20_cb is not None and ret20_cb > ARM_DIV_RET)
+                else "z-score below threshold, but 20d trend ≤ +2% — Mode B not fully armed" if (id20_z is not None and id20_z < ARM_Z)
                 else "approaching arm threshold" if (id20_z is not None and id20_z < -0.5)
                 else "positive — no relative distribution signal" if id20_z is not None
                 else "< 120 sessions — Mode B not yet available"

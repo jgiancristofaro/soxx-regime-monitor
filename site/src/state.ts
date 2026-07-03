@@ -48,8 +48,8 @@ export function renderStatePanel(data: SignalData): void {
     const b = data.state.arm_mode_b ?? false;
     if (a !== b) {
       splitBanner.textContent = a
-        ? 'Absolute rule armed, relative rule not — lower confidence signal'
-        : 'Relative rule armed, absolute rule not — lower confidence signal';
+        ? 'Intraday selling is negative (Mode A), but not unusually extreme vs. the past year (Mode B inactive) — lower conviction'
+        : 'Intraday selling is historically extreme vs. the past year (Mode B), but hasn\'t crossed the absolute zero line (Mode A inactive) — watch closely';
       splitBanner.style.display = '';
     } else {
       splitBanner.style.display = 'none';
