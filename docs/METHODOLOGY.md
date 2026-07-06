@@ -1,4 +1,7 @@
 # SOXX Regime Ruleset — v3 (Final)
+**⚠️ SUPERSEDED — This document is no longer maintained.**
+The live methodology is at [`site/public/methodology.html`](../site/public/methodology.html), served publicly at `https://jgiancristofaro.github.io/soxx-regime-monitor/methodology.html`. Historical archived versions are in [`site/public/methodology-archive/`](../site/public/methodology-archive/). This file is preserved as the original v3 spec (as of July 2, 2026, before subsequent v3.3/v3.5/v3.6 additions) for reference only.
+
 **As of July 2, 2026 · iShares Semiconductor ETF (SOXX) · supersedes all prior versions**
 
 ---

@@ -249,6 +249,18 @@ These are hard requirements for all AI agents working on this project:
 ### 5. Disclaimer — Non-Negotiable
 Every page must include: *"Research and education only. Not investment advice. Signals are in-sample on n=3 episodes. No warranty."*
 
+### 6. Methodology Archive — Archive Before Editing
+The live methodology is at `site/public/methodology.html`. Historical versions are stored in `site/public/methodology-archive/` and served as part of the static site.
+
+**Workflow: before making any content changes to `methodology.html`:**
+1. Copy `site/public/methodology.html` to `site/public/methodology-archive/YYYY-MM-DD.html` (use the date of the edit)
+2. Add the archive banner near the top of the copied file (see `2026-07-06.html` for the banner format)
+3. Prepend a new row to the table in `site/public/methodology-archive/index.html` (most-recent first)
+4. Commit the archive files: `docs(methodology): archive YYYY-MM-DD snapshot before <description of change>`
+5. Then make changes to `site/public/methodology.html`
+
+The archive is browsable via the "Methodology Archive →" link at the bottom of the live methodology page. `docs/METHODOLOGY.md` is superseded and points to the live HTML.
+
 ---
 
 ## Operating Manual

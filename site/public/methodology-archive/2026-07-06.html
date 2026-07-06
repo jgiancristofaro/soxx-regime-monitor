@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Methodology — SOXX Regime Monitor</title>
+  <title>[Archived 2026-07-06] Methodology — SOXX Regime Monitor</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -55,29 +55,23 @@
     dd { margin: 0.2rem 0 0 1.25rem; color: #d1d5db; font-size: 0.9rem; }
     dd + dd { margin-top: 0.1rem; }
     .tag { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.1em 0.45em; border-radius: 4px; background: #1f2937; color: #9ca3af; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }
+    .archive-banner { background: #1a1508; border: 1px solid #78350f; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 2rem; font-size: 0.88rem; color: #fbbf24; }
+    .archive-banner a { color: #38bdf8; }
   </style>
 </head>
 <body>
 <div class="content">
 
-<nav><a href="./">← Back to Dashboard</a></nav>
+<div class="archive-banner">
+  <strong>⊘ Archived version — 2026-07-06</strong><br>
+  This snapshot was captured on July 6, 2026 before additions of §0 "The System in Ten Lines", §10 Trigger Evidence, §11 Current State, §12 Daily Monitoring, and the Signal Quick Reference table. Includes v3.3 Asia diagnostics and v3.5 Mode B statistical caveat (Z1–Z4).
+  <br><a href="../methodology.html">View current methodology →</a> &nbsp;·&nbsp; <a href="./">View all archived versions →</a>
+</div>
+
+<nav><a href="../">← Back to Dashboard</a></nav>
 
 <h1>SOXX Regime Monitor — Methodology</h1>
 <p>This page documents the signal construction, state machine rules, and backtest assumptions underlying the dashboard.</p>
-
-<h2>0. The System in Ten Lines</h2>
-<ol>
-  <li>The core signal is the <strong>overnight/intraday return decomposition</strong>: who is actually buying — institutions (intraday, open→close) or Asia/futures gaps (overnight, close→open)?</li>
-  <li>When price rises but the 20-day intraday stream (<code>id20</code>) is negative, institutions are selling into the overnight bid. That is <strong>distribution</strong> — the system arms (→ MONITOR state).</li>
-  <li>When price falls but <code>id20</code> is strongly positive, institutions are buying the decline. That is <strong>accumulation</strong> (ACCUM overlay). Stay long or re-enter.</li>
-  <li>Once in MONITOR, <strong>de-risk only into strength</strong> — on the next +1% intraday or +1.5% day (→ EXIT state). Never into a panic close. This single execution rule was worth ≈20 return points in the Jun 2026 exit.</li>
-  <li>Realized vol does <strong>not</strong> trigger anything. It sizes the position (vol-target / RV envelope). Full exposure below rv20_p90; scaled back only in extreme regimes.</li>
-  <li>Implied vol does <strong>not</strong> trigger anything. It selects the instrument: IV rich vs. RV → sell shares; IV cheap vs. RV → hold shares, buy puts instead.</li>
-  <li>Fundamentals (TSMC revenue, memory pricing, hyperscaler capex) do <strong>not</strong> trigger anything. They inform the maximum strategic-capital cap, reviewed monthly (see §9).</li>
-  <li>Moving averages are confirmation and re-entry lines only (20-DMA), never the primary signal.</li>
-  <li>In 2026 this triggered three times: a small Feb whipsaw, then a clean EXIT at <strong>$639 on Jun 18 — four days before the $655 all-time high</strong> — flat through the entire June–July slide.</li>
-  <li>See §11 for current state and re-entry conditions. See §10 for the full 2026 performance record.</li>
-</ol>
 
 <h2>1. Overview</h2>
 <p>The monitor tracks a <strong>return-decomposition signal</strong> on SOXX (iShares Semiconductor ETF). Each daily return is split into:</p>
@@ -220,8 +214,6 @@
   <tr><td><code>dd20</code></td><td>close / max(close, 20) − 1</td><td>Drawdown from 20-session high; used by CRASH_GATE</td></tr>
   <tr><td><code>vix_slope</code></td><td>VXVCLS − VIXCLS (FRED)</td><td>VIX term structure; positive = contango (calm)</td></tr>
   <tr><td><code>real_chg20</code></td><td>Δ20d (DGS10 − T10YIE) in pp (FRED)</td><td>Real yield change; rising = headwind for tech</td></tr>
-  <tr><td><code>turb</code></td><td>|ret<sub>t</sub> − mean(ret,60)| / std(ret,60)</td><td>Crash-day confirm; z &gt; 3 = tail event (Jun 5 = 3.7)</td></tr>
-  <tr><td><code>ar1</code></td><td>Rolling 20-day return autocorrelation</td><td>&lt; −0.15 = mean-reverting tape → sell rallies, never short holes</td></tr>
 </table>
 
 <h2>4. State Machine</h2>
@@ -367,77 +359,6 @@
   These are qualitative triggers for a manual strategic-capital review — not inputs to the state machine, not automatic position rules, and not investment advice. Triggers are written as "review mandatory" rather than "action mandatory" because the correct response depends on the full weight of evidence at the time.
 </div>
 
-<h2>10. Trigger Evidence — 2026 In-Sample (n=3 episodes)</h2>
-<p>Performance comparison from Jan 20 through last pipeline run. Treat as <em>protocol validation</em> — not return prediction. All rules were designed and tested on this same period.</p>
-<table>
-  <tr><th>Variant (from Jan 20, 2026)</th><th>Return</th><th>Max DD</th><th>Switches</th><th>Position today</th></tr>
-  <tr><td>Buy &amp; hold</td><td>+77.8%</td><td>−15.8%</td><td>—</td><td>1.0 (price ~$566, Jul 3)</td></tr>
-  <tr><td>Trigger, executed immediately</td><td>+57.0%</td><td>−20.1%</td><td>11</td><td>0</td></tr>
-  <tr><td><strong>Trigger, exec-into-strength</strong></td><td><strong>+77.2%</strong></td><td>−18.6%</td><td><strong>3</strong></td><td><strong>0 (cash since Jun 18)</strong></td></tr>
-  <tr><td>RV-only trigger (control)</td><td>+73.1%</td><td>−16.8%</td><td>2</td><td>1.0 (blind to distribution)</td></tr>
-</table>
-<p><em>Return figures as of Jul 2, 2026 (last session before Jul 4 holiday). B&amp;H return updates with price; strategy is fixed at cash since the Jun 18 exit.</em></p>
-
-<h3>Trade log (exec-into-strength, exact)</h3>
-<table>
-  <tr><th>Date</th><th>Action</th><th>Price</th><th>Reason</th></tr>
-  <tr><td>2026-02-05</td><td>EXIT</td><td>$330.83</td><td>Exec-into-strength</td></tr>
-  <tr><td>2026-02-06</td><td>REENTER</td><td>$348.51</td><td>Disarm (whipsaw, −5% cost)</td></tr>
-  <tr><td>2026-06-18</td><td>EXIT</td><td>$639.45</td><td>Exec-into-strength (same-day arm+exit)</td></tr>
-</table>
-
-<h3>Episode record</h3>
-<ul>
-  <li><strong>Feb 12–13 divergence</strong> → preceded the −15.8% Feb 25–Mar 30 correction by ~2 weeks. ✓</li>
-  <li><strong>Mar 9–31 accumulation</strong> (on20 −12.5%, id20 +7.1%; the decline was all overnight gaps while institutions bought intraday all month) → preceded the +40% April melt-up. ✓ Also explains why no system avoids the Feb–Mar drawdown: the intraday signal correctly flagged accumulation throughout.</li>
-  <li><strong>Jun 9–10, then Jun 18–Jul 1 divergence</strong> — id20 went negative on Jun 22 (the $655 all-time high day) while on20 was +25.4%. The final leg was entirely overnight gaps being sold into during the US session. ✓</li>
-</ul>
-<div class="note">
-  Known limits: rules designed and tested on the same six months; all thresholds are in-sample choices; the hybrid rule is itself the third in-sample iteration. A 2020-style overnight gap crash would blow through the exec-into-strength rule — the 3-session escape valve is the only protection. Multi-year (2019–2025) calibration is the highest-priority future work.
-</div>
-
-<h2>11. Current State and Re-entry</h2>
-<p><em>Static snapshot — updated manually before each methodology revision. Last updated: <strong>Jul 6, 2026</strong>.</em></p>
-<ul>
-  <li><strong>State:</strong> EXIT since Jun 18, 2026 (exec-into-strength at $639.45).</li>
-  <li><strong>id20:</strong> −12.2% (Jul 3 close) — the most intense US-hours institutional selling in the 13-month sample. This is the <em>sample low</em> badge shown on the dashboard: below the prior H2-2025 minimum (−10.4%, Jun 5 crash day) and the prior 2026 minimum (−7.6%). Sign negative and 5-day slope still falling.</li>
-  <li><strong>on20:</strong> faded from +25.4% (Jun 22, ATH day) to low single digits. With id20 deeply negative and on20 rapidly fading, both streams are converging negative — this is <em>trend</em>, not chop. Do not anticipate re-entry until on20 stabilizes or id20 begins recovering.</li>
-  <li><strong>Re-entry conditions (either):</strong>
-    <ol>
-      <li><strong>ACCUM overlay:</strong> id20 &gt; +2% while ret20 &lt; −2% — institutions net-buying a falling tape</li>
-      <li><strong>MA20 recovery:</strong> 2 consecutive closes above the 20-DMA (~$590, falling) with id20 &gt; 0</li>
-    </ol>
-  </li>
-  <li><strong>Short permission:</strong> not currently met. Requires all three: close &lt; 50-DMA (~$548) on &gt;1.5× volume AND id20 &lt; 0 AND on20 &lt; 0. The id20 condition passes; MA50 and on20 conditions are not yet met. No shorting while AR(1) &lt; −0.15 (mean-reverting tape — the SOXS/put crowd was carried out twice in June).</li>
-  <li><strong>Fundamental context (strategic cap = 0.6):</strong> TSMC June revenue prints ~Jul 10; hyperscaler Q2 calls (late July) are the confirmation venue for any capex-plateau language. Cap remains 0.6 until confirmed. Korea capacity announcements ($518–646B) are the classic memory-cycle supply response — watch TrendForce DRAM/NAND contract quotes weekly.</li>
-</ul>
-
-<h2>12. Daily Monitoring — The Five Numbers</h2>
-<p>Check at each close. All values shown live on the dashboard. Reference values as of Jul 3, 2026 (last session before Jul 4 holiday).</p>
-<ol>
-  <li>
-    <strong>id20</strong> — the decision series. Note sign and 5-day slope.<br>
-    <em>Current: −12.2% (13-month sample low). Armed means negative and falling; disarm means recovering toward zero.</em>
-  </li>
-  <li>
-    <strong>on20</strong> — is the overnight bid holding? Both streams negative = trend, not chop.<br>
-    <em>Current: fading rapidly (was +25.4% on Jun 22; now in low single digits). On20 positive while id20 negative = distribution with Asia bid still present; both negative = no overnight support.</em>
-  </li>
-  <li>
-    <strong>Close vs. 20-DMA (~$590, falling)</strong> — the re-entry line. Also vs. 50-DMA (~$548) — the short-permission line.<br>
-    <em>Price reclaims 20-DMA for 2 sessions with id20 &gt; 0 → re-entry. Price breaks 50-DMA on volume with id20 &lt; 0 and on20 &lt; 0 → short permission.</em>
-  </li>
-  <li>
-    <strong>rv20 (~87%)</strong> — sets position size when re-entered. Full size only when rv20 &lt; rv20_p90 (90th percentile of trailing year).<br>
-    <em>Current high vol reduces suggested size to ~46%. Watch for rv20 declining below ~50% as a regime-normalization signal.</em>
-  </li>
-  <li>
-    <strong>IV30 − rv20 (~−41 pts)</strong> — the instrument selector. Deeply negative = puts are very cheap relative to realized vol.<br>
-    <em>Correct expression of risk-off right now is owning puts, not adding to the sold position. If/when VRP snaps above 0 while in MONITOR → switch from puts to selling shares.</em>
-  </li>
-</ol>
-<p><strong>Weekly adds:</strong> TSMC monthly revenue (~10th of each month), TrendForce DRAM/NAND contract quotes, semi ETF net flows (SMH + SOXX + SOXL), P/C OI at front expiries, hyperscaler earnings calendar.</p>
-
 <h2>Appendix A — v3.2 Pressure Test Results</h2>
 <p>The following pressure tests (P1–P6) were run against the Jan–Jul 2026 fixture (n=128 sessions, 3 confirming episodes) as part of the v3.2 change order. Tests V1–V9 are pinned in <code>pipeline/tests/test_state_machine.py</code>.</p>
 
@@ -512,10 +433,6 @@
 
 <div class="note">
   <strong>Disclaimer:</strong> Research and education only. Not investment advice. Signals are in-sample on n=3 episodes. No warranty.
-</div>
-
-<div style="margin-top:3rem;padding-top:1.5rem;border-top:1px solid #30363d;text-align:center;">
-  <a href="./methodology-archive/" style="color:#6b7280;font-size:0.85rem;text-decoration:none;">Methodology Archive →</a>
 </div>
 
 </div>

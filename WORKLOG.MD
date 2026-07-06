@@ -22,6 +22,7 @@
 | [011](#011) | 2026-07-02 | Change Order v3.2: derived series, FRED, sizing tilt, short-perm, ENSEMBLE, CRASH_GATE, V1-V9 |
 | [012](#012) | 2026-07-03 | Change Order v3.3: Asia diagnostics, earnings reactions, methodology relabeling, W1-W8 |
 | [013](#013) | 2026-07-03 | Change Order v3.5: Mode B caveat, id20_pctl120, sample-extreme marker, X1-X5+V11 |
+| [014](#014) | 2026-07-06 | Methodology archive system; port §0/§10-12 from METHODOLOGY.md to HTML; supersede docs/METHODOLOGY.md |
 
 ---
 
@@ -271,5 +272,30 @@ Owner-initiated pressure test of Mode B statistical validity: is the 252-session
 **Methodology:** Added "Mode B — Statistical caveat (v3.5)" subsection in §4.1 with Z1-Z4 findings and the Z3 alternatives-rejected table. Strategic-tier regime identification restatement. No position logic described on this page was changed.
 
 **Key invariant preserved:** V11 static guard + X5 confirm all new symbols are absent from `_run_state_machine`. Golden record byte-identical (v3.2 trades/states/sizes unchanged on identical input).
+
+---
+
+<a name="014"></a>
+## [014] 2026-07-06 — Methodology archive system; port §0/§10-12; supersede METHODOLOGY.md
+
+**Motivation:** `site/public/methodology.html` had grown through v3.3 and v3.5 additions, but several key sections from the original `docs/METHODOLOGY.md` spec (§0 "The System in Ten Lines", §4 trigger evidence table, §5 current state, §6 daily monitoring) had never been ported to the HTML version. Additionally, there was no mechanism for preserving historical methodology snapshots before edits.
+
+**Methodology archive infrastructure:**
+- Created `site/public/methodology-archive/` directory (served as a static site subpath by Vite/GitHub Pages).
+- `site/public/methodology-archive/index.html` — archive index with dark theme matching methodology.html; lists versions most-recent first; always links back to current.
+- Archived the pre-edit methodology as `site/public/methodology-archive/2026-07-06.html` with an amber archive banner at the top identifying what was captured and what changed after it.
+- Added "Methodology Archive →" link at the bottom of `site/public/methodology.html`.
+- Added §6 "Methodology Archive — Archive Before Editing" workflow to CLAUDE.md specifying the copy-then-edit protocol.
+
+**Content additions to `methodology.html`:**
+- §0 "The System in Ten Lines" — 10-item ordered list before §1 Overview; uses current terminology (MONITOR/EXIT, not ARMED/FIRED); references §10/§11 for trigger evidence and current state.
+- §3 Key Signals table — added `turb` and `ar1` rows (were in Defined Terms but missing from signal table).
+- §10 "Trigger Evidence" — performance comparison table (B&H/immediate/exec-into-strength/RV-only) from METHODOLOGY.md §4, with exact trade log and episode record. Figures as of Jul 2, 2026. Noted as protocol validation, not alpha proof.
+- §11 "Current State and Re-entry" — static snapshot (manually updated before each revision). As of Jul 6, 2026: EXIT since Jun 18, id20 = −12.2% (sample low), on20 fading, both re-entry conditions (ACCUM / MA20 recovery), short-permission status, fundamental context.
+- §12 "Daily Monitoring — The Five Numbers" — the five daily numbers from METHODOLOGY.md §6, updated with reference values as of Jul 3. Plus weekly monitoring adds.
+
+**Superseded `docs/METHODOLOGY.md`:** Added a header note flagging the file as superseded, pointing to the live HTML and the archive directory. File contents unchanged; preserved as the original v3 spec (Jul 2, 2026, pre-v3.3/v3.5/v3.6 additions).
+
+**No pipeline or state machine changes in this entry.**
 
 ---
