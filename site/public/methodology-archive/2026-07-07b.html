@@ -55,10 +55,18 @@
     dd { margin: 0.2rem 0 0 1.25rem; color: #d1d5db; font-size: 0.9rem; }
     dd + dd { margin-top: 0.1rem; }
     .tag { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.1em 0.45em; border-radius: 4px; background: #1f2937; color: #9ca3af; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }
+    .archive-banner { background: #1a1508; border: 1px solid #78350f; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 2rem; font-size: 0.88rem; color: #fbbf24; }
+    .archive-banner a { color: #38bdf8; }
   </style>
 </head>
 <body>
 <div class="content">
+
+<div class="archive-banner">
+  <strong>⊘ Archived version — 2026-07-07b</strong><br>
+  This snapshot was captured on July 7, 2026 before adding the WEAK_BOUNCE_EXIT experimental status note to the Pressure Tests table (erratum v3.6.1). Includes the dealer-hedging confound note added in v3.6 Change 2. Last pipeline session reflected: Jul 3, 2026.
+  <br><a href="../methodology.html">View current methodology →</a> &nbsp;·&nbsp; <a href="./">View all archived versions →</a>
+</div>
 
 <nav><a href="./">← Back to Dashboard</a></nav>
 
@@ -492,12 +500,6 @@
     <td>V7</td>
     <td>+0.3pt on 1 episode; knife-edge threshold</td>
     <td>Default OFF pending multi-year calibration</td>
-  </tr>
-  <tr>
-    <td>WEAK_BOUNCE_EXIT as default-ON</td>
-    <td>Y7</td>
-    <td>H2-2025: +6pts (5 exits → 1). 2026: −9pts (suppresses Jun genuine reclaims; machine pays $639→$581 decline). Crash-adjacent bounces close below MA20 by construction, so WB still exits them — only the grind-regime genuine reclaims are suppressed.</td>
-    <td><strong>Experimental</strong> — default OFF. Promotion requires: multi-year evidence that grind regimes dominate crash-adjacent bounces, OR redesign pairing WB filter with the DIV arm only (never with the ABS arm, which fires during crash slides and makes WB costly).</td>
   </tr>
 </table>
 

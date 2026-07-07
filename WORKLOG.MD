@@ -24,6 +24,7 @@
 | [013](#013) | 2026-07-03 | Change Order v3.5: Mode B caveat, id20_pctl120, sample-extreme marker, X1-X5+V11 |
 | [014](#014) | 2026-07-06 | Methodology archive system; port §0/§10-12 from METHODOLOGY.md to HTML; supersede docs/METHODOLOGY.md |
 | [015](#015) | 2026-07-07 | Change Order v3.6: WEAK_BOUNCE_EXIT flag, live-candle guard, Y1-Y6 tests, adjudication doc, dealer-hedging note |
+| [016](#016) | 2026-07-07 | Erratum v3.6.1: corrected WEAK_BOUNCE_EXIT 2026 evidence, status downgrade to experimental, Y7 test |
 
 ---
 
@@ -326,5 +327,40 @@ Added `_drop_live_candle(df, now_utc=None)` to `pipeline/compute.py`. Drops the 
 **`docs/EXTERNAL_REVIEW_ADJUDICATION.md`** created with the full G1–G8 finding-by-finding record.
 
 **Why WEAK_BOUNCE_EXIT stays OFF by default:** First externally-sourced idea that improves H2-2025 performance, but the 2026 in-sample window degrades. Held to the same standard as ENSEMBLE_ARM/CRASH_GATE: needs 2019–2024 calibration before promotion.
+
+---
+
+<a name="016"></a>
+## [016] 2026-07-07 — Erratum v3.6.1: corrected WEAK_BOUNCE_EXIT 2026 evidence, status downgrade to experimental, Y7 test
+
+**Origin:** Erratum v3.6.1 (received same session as v3.6 implementation). Applies docs/status corrections only — no code changes, no golden-record changes.
+
+**Correction 1 — Evidence paragraph in [015] Change 1 (−3pts claim was wrong):**
+[015] stated "2026 −3pts." This came from the external review's architecture (DIV-only arm, no ABS arm), which cannot arm in Feb/Mar because ret20 < +2% during the decline. The incumbent machine's ABS arm DOES fire in Feb/Mar, so the comparison is apples-to-oranges.
+
+With the incumbent machine, our codebase (yfinance + disarm-first MONITOR ordering) computes:
+- WB=ON equity Jan 20 → Jul 6 2026 ≈ **+63%**
+- WB=OFF equity (golden record) ≈ **+72%**
+- **Cost ≈ −9pts** (Jun 18 exit suppressed as genuine reclaim; machine pays the $639→$581 decline)
+
+The erratum author computed: ON +56.5% vs OFF +72.9% → −16.4pts. That figure assumed exits {Feb 5 @ 330.83, **Mar 31 @ 328.66**, Jul 6 @ 581.51}. The Mar 31 EXIT is NOT produced by our code because our MONITOR block disarms unconditionally when arm clears (verified by Y7). The erratum appears to have used a code variant that checks strength before the arm-clear disarm; our ordering preserves the "unconditional disarm" decision from [007] and would break the golden record if changed.
+
+Both our numbers and the erratum's agree directionally: WB=ON costs materially in 2026.
+
+**Correction 2 — Status downgrade to "experimental":**
+[015] said "held to the same standard as ENSEMBLE_ARM/CRASH_GATE." The erratum formalizes this as **"experimental."** Promotion now requires: (a) multi-year calibration showing grind regimes dominate crash-adjacent bounces, OR (b) redesign pairing WB filter with DIV arm only (never with ABS arm — the ABS arm arming during crash slides is exactly the scenario WB costs most). This constraint is added to methodology.html.
+
+**Correction 3 — Operator checklist (confirmed):**
+- `WEAK_BOUNCE_EXIT = False` confirmed in `pipeline/state_machine.py` and CLAUDE.md.
+- Y6 (flags-off isolation) is green in CI.
+- Dashboard shows no non-default-config notice (default OFF; site is unaffected by v3.6 code changes).
+
+**Test vector Y7 added** (documentation-integrity guard, network-optional):
+- Confirms WB=ON exits = {2026-02-05, 2026-07-06} — NOT {Feb 5, Mar 31, Jul 6} as erratum claimed.
+- Confirms Mar 31 is a DISARM (arm clears before strength fires), not an EXIT.
+- Confirms Jun 18 does NOT exit (genuine reclaim; close $639 > MA20 $579).
+- Confirms WB=ON costs 5–15pts vs WB=OFF in Jan 20 → Jul 6 2026 window.
+
+**No code changes in this erratum.** Y6 remains green; golden record unchanged.
 
 ---

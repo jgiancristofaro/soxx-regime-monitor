@@ -1231,3 +1231,86 @@ def test_y6_flags_off_isolation(df_full):
     )
     assert trades[2]["action"] == "EXIT"
     assert states[-1] == "EXIT", f"Y6: Expected EXIT on last day, got {states[-1]}"
+
+
+def test_y7_weak_bounce_exit_on_equity_2026():
+    """Y7: Documentation-integrity guard — WEAK_BOUNCE_EXIT=ON, incumbent machine, Jan 20 → Jul 6 2026.
+
+    Erratum v3.6.1 claimed: exits {Feb 5 @ 330.83, Mar 31 @ 328.66, Jul 6 @ 581.51};
+    ON equity ≈ +56.5% vs OFF +72.9% → −16.4pts. That was computed with a code variant
+    where the MONITOR block checks strength BEFORE the arm-clear / disarm condition.
+
+    Our code checks disarm FIRST (unconditional, per DISARM_SESSIONS note). Therefore:
+    - Mar 31: arm clears (id20=−0.82%, ret20=−1.1% → neither mode-A threshold met)
+              → unconditional disarm to RISK_ON before the strength check fires → NO EXIT.
+    - Jun 18: arm fires + strength fires + close $639 > MA20 $579 → genuine reclaim → NO EXIT.
+    - Jul 6:  arm fires + strength fires + close $581 < MA20 $597 → EXIT (failed bounce).
+
+    Our code actual exits with WB=ON: {2026-02-05, 2026-07-06} — 2 exits.
+    WB=ON equity ≈ +63%; WB=OFF ≈ +72%; cost ≈ 9pts (erratum's −16.4pts assumed Mar 31 EXIT).
+
+    Requires live SOXX data through Jul 6. Skipped offline.
+    """
+    df_d = _try_fetch_soxx(days=600)
+    if df_d is None:
+        pytest.skip("Y7: SOXX data unavailable (network required)")
+
+    if pd.Timestamp("2026-07-06") not in df_d.index:
+        pytest.skip("Y7: Jul 6, 2026 not in SOXX data (market holiday or data lag)")
+
+    ytd = df_d[df_d.index >= pd.Timestamp("2026-01-02")].copy()
+    states_on, _, trades_on = _run_state_machine(ytd, weak_bounce_exit=True)
+    states_off, _, trades_off = _run_state_machine(ytd, weak_bounce_exit=False)
+
+    # WB=ON exits in 2026: Feb 5 (failed bounce, close < MA20) and Jul 6 (same)
+    exits_on = [t for t in trades_on if t["action"] == "EXIT" and t["date"] >= "2026-01-20"]
+    exit_dates_on = sorted(e["date"] for e in exits_on)
+
+    assert "2026-02-05" in exit_dates_on, (
+        f"Y7: Feb 5 EXIT missing with WB=ON; exits={exit_dates_on}"
+    )
+    assert "2026-07-06" in exit_dates_on, (
+        f"Y7: Jul 6 EXIT missing with WB=ON; exits={exit_dates_on}"
+    )
+
+    # Jun 18 must NOT EXIT (close $639 > MA20 → genuine reclaim suppressed by WB filter)
+    assert "2026-06-18" not in exit_dates_on, (
+        f"Y7: Jun 18 must not EXIT with WB=ON (close > MA20 → genuine reclaim); exits={exit_dates_on}"
+    )
+
+    # Mar 31: arm clears before strength check → DISARM (RISK_ON), NOT exit
+    # This confirms disarm-first ordering is preserved (changing it would break golden record)
+    assert "2026-03-31" not in exit_dates_on, (
+        f"Y7: Mar 31 must NOT EXIT with WB=ON — arm disarms unconditionally before strength fires; "
+        f"exits={exit_dates_on}"
+    )
+
+    # WB=ON costs 5–15pts vs WB=OFF in Jan 20 → Jul 6 2026
+    def _equity_from(states, trades, df, start="2026-01-20", end="2026-07-06"):
+        td = {t["date"] for t in trades}
+        cum = 1.0
+        in_w = False
+        for i, (idx, row) in enumerate(df.iterrows()):
+            d = idx.strftime("%Y-%m-%d")
+            if d == start:
+                in_w = True
+            if not in_w:
+                continue
+            ret = float(row["ret"]) if not np.isnan(float(row["ret"])) else 0.0
+            pos = 1.0 if states[i] == "RISK_ON" else (0.6 if states[i] == "MONITOR" else 0.0)
+            cum *= 1 + ret * pos
+            if d in td:
+                cum *= 1 - SLIPPAGE_BPS / 10_000
+            if d >= end:
+                break
+        return cum - 1
+
+    eq_on = _equity_from(states_on, trades_on, ytd)
+    eq_off = _equity_from(states_off, trades_off, ytd)
+
+    cost = eq_off - eq_on
+    assert 0.05 <= cost <= 0.15, (
+        f"Y7: WB=ON 2026 cost vs OFF = {cost:.3f}; expected 5–15pts "
+        f"(ON={eq_on:.3f}, OFF={eq_off:.3f}). "
+        "If cost < 5pts, WB unexpectedly helped; if > 15pts, equity math error."
+    )
