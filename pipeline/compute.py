@@ -61,6 +61,32 @@ def _append_options_history(manual: dict, today_str: str) -> None:
         writer.writerow(row)
 
 
+def _drop_live_candle(
+    df: pd.DataFrame,
+    now_utc: "datetime | None" = None,
+) -> "tuple[pd.DataFrame, bool]":
+    """Drop the last row if its date equals today and current UTC time is before 21:30.
+
+    Returns (df, was_dropped). Rationale: reject in-progress candles before the 16:30 ET
+    close + 5-hour buffer (v3.6 Change 3 — prevents live-session prints entering signal math).
+    """
+    if now_utc is None:
+        now_utc = datetime.now(timezone.utc)
+
+    CUTOFF_HOUR, CUTOFF_MINUTE = 21, 30
+    past_cutoff = now_utc.hour > CUTOFF_HOUR or (
+        now_utc.hour == CUTOFF_HOUR and now_utc.minute >= CUTOFF_MINUTE
+    )
+
+    if df.empty or past_cutoff:
+        return df, False
+
+    if df.index[-1].strftime("%Y-%m-%d") == now_utc.strftime("%Y-%m-%d"):
+        return df.iloc[:-1], True
+
+    return df, False
+
+
 def _fetch_fred_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Add vix_slope and real_chg20 columns from FRED data (continue-on-error)."""
     sys.path.insert(0, str(ROOT))
@@ -258,6 +284,11 @@ def main():
             print("  No fallback available — aborting")
             sys.exit(1)
 
+    # Live-candle guard (v3.6 Change 3): drop today's row if before 21:30 UTC
+    df, is_live_candle = _drop_live_candle(df)
+    if is_live_candle:
+        print(f"  WARN: Dropped live intraday candle (before 21:30 UTC); last settled: {df.index[-1].date()}")
+
     # FRED enrichment (continue-on-error — never blocks the core pipeline)
     print("Fetching FRED data...")
     df = _fetch_fred_columns(df)
@@ -284,6 +315,7 @@ def main():
     result = compute_signals(df, manual)
     result["generated_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     result["data_stale"] = stale
+    result["is_live_candle"] = is_live_candle
 
     # Merge chart events with graded earnings reactions
     reaction_events = [

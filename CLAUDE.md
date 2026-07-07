@@ -176,6 +176,8 @@ GAP_THR      = 0.003   # minimum SOXX overnight return to count as up-gap (Asia 
 # id20_pctl120  — computed in _compute_derived; rolling 120-session percentile rank (min_periods=60)
 # id20_is_sample_low/high — computed in compute_signals; True when id20 ≤/≥ full-history min/max excl. last 5 sessions
 # id20_history_months — approximate history length in months (sessions / 21)
+# v3.6 additions
+WEAK_BOUNCE_EXIT = False   # MA20 qualifier: genuine reclaim → disarm, failed bounce → EXIT (default OFF; Y3/Y6)
 ```
 
 ---

@@ -23,6 +23,7 @@
 | [012](#012) | 2026-07-03 | Change Order v3.3: Asia diagnostics, earnings reactions, methodology relabeling, W1-W8 |
 | [013](#013) | 2026-07-03 | Change Order v3.5: Mode B caveat, id20_pctl120, sample-extreme marker, X1-X5+V11 |
 | [014](#014) | 2026-07-06 | Methodology archive system; port §0/§10-12 from METHODOLOGY.md to HTML; supersede docs/METHODOLOGY.md |
+| [015](#015) | 2026-07-07 | Change Order v3.6: WEAK_BOUNCE_EXIT flag, live-candle guard, Y1-Y6 tests, adjudication doc, dealer-hedging note |
 
 ---
 
@@ -297,5 +298,33 @@ Owner-initiated pressure test of Mode B statistical validity: is the 252-session
 **Superseded `docs/METHODOLOGY.md`:** Added a header note flagging the file as superseded, pointing to the live HTML and the archive directory. File contents unchanged; preserved as the original v3 spec (Jul 2, 2026, pre-v3.3/v3.5/v3.6 additions).
 
 **No pipeline or state machine changes in this entry.**
+
+---
+
+<a name="015"></a>
+## [015] 2026-07-07 — Change Order v3.6: WEAK_BOUNCE_EXIT flag, live-candle guard, Y1-Y6 tests, adjudication doc, dealer-hedging note
+
+**Origin:** Independent external review claiming +85.38% YTD via "Unified Strategy" synthesis. Adjudicated fully — one element promoted, rest rejected.
+
+**Change 1 — WEAK_BOUNCE_EXIT = False (config flag, default OFF):**
+Added constant `WEAK_BOUNCE_EXIT` to `pipeline/state_machine.py` and `weak_bounce_exit` parameter to `_run_state_machine`. When ON, exec-into-strength in MONITOR state first checks close vs. MA20: `close >= MA20` → disarm (genuine reclaim, RISK_ON, no trade); `close < MA20` → EXIT as usual. Same logic applied to same-day arm+exit in the RISK_ON block. Default OFF preserves v3.2 golden record byte-identical (confirmed by Y6). Evidence: H2-2025 +6pts (one exit vs. five); 2026 −3pts (forfeits Jun 18/22 exits at $639–655, exits Jul 6 @ $581.51).
+
+**Change 2 — Dealer-hedging confound note (docs only):**
+Added a third `<dd>` to the `id20` description in `site/public/methodology.html` documenting the negative-gamma dealer-hedging confound. Methodology archived as `2026-07-07.html` per §6 protocol before editing.
+
+**Change 3 — Live-candle guard in pipeline:**
+Added `_drop_live_candle(df, now_utc=None)` to `pipeline/compute.py`. Drops the last OHLCV row if its date equals today UTC and the time is before 21:30 UTC (16:30 ET + buffer). `main()` calls it after fetch and propagates `is_live_candle` flag to signals.json. Triggered by G4 finding: the review's headline was measured against a mid-session intraday print.
+
+**Change 4 — Test vectors Y1–Y6:**
+- Y1: External machine reproduction (network-optional), single EXIT Jul 6 @ $581.51.
+- Y2: Same machine H2-2025 (network-optional), one round-trip near Dec 18/22.
+- Y3: WEAK_BOUNCE_EXIT=ON on incumbent 2026 (network-optional), Jun 18/22 disarmed, single Jul 6 exit.
+- Y4: Matched-window ranking ordering assertion (network-optional, requires Jul 7 settled close).
+- Y5: Live-candle guard unit test (pure fixture/synthetic, always runs).
+- Y6: Flags-off isolation — v3.2 golden record byte-identical with WEAK_BOUNCE_EXIT=False (pure fixture).
+
+**`docs/EXTERNAL_REVIEW_ADJUDICATION.md`** created with the full G1–G8 finding-by-finding record.
+
+**Why WEAK_BOUNCE_EXIT stays OFF by default:** First externally-sourced idea that improves H2-2025 performance, but the 2026 in-sample window degrades. Held to the same standard as ENSEMBLE_ARM/CRASH_GATE: needs 2019–2024 calibration before promotion.
 
 ---

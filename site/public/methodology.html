@@ -110,6 +110,7 @@
   <dt><code>id20</code> <span class="tag">20-day intraday stream</span></dt>
   <dd>The sum of the last 20 intraday returns. This is the core decision signal.</dd>
   <dd>When negative, institutions have been net sellers during the trading day over the past month, even if the stock is up. This is the distribution signal that arms the monitor.</dd>
+  <dd><strong>Known confound — dealer delta hedging:</strong> in negative-gamma regimes, market-maker delta hedging mechanically sells weakness during regular hours, depressing id<sub>t</sub> independent of discretionary institutional flow. id20 therefore measures <em>net US-regular-hours flow from all participants</em> and cannot distinguish discretionary distribution from dealer-hedging amplification. This confound is currently untestable with free data (no public SOXX GEX history; the only GEX-calibrated strategy tested in an independent 2026 review underperformed buy-and-hold by 4pts in its own table). The <code>options_history.csv</code> bootstrap (v3.2 Change 6) is the designated test path if GEX data becomes available.</dd>
 
   <dt><code>on20</code> <span class="tag">20-day overnight stream</span></dt>
   <dd>The sum of the last 20 overnight returns. Captures the Asia-institutional overnight bid (structural drift from Taiwan and Korean markets).</dd>

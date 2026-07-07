@@ -30,6 +30,7 @@ ONMOM_FACTOR     = 0.8     # multiply suggested_size by this when tilt is active
 ENSEMBLE_ARM     = False   # 2-of-3 vote at N=15/20/25; -4.1pts 2026, +2.2pts H2-2025 (P4)
 CRASH_GATE       = False   # suppress ABS arm when dd20 ≤ CRASH_GATE_DD (P5)
 CRASH_GATE_DD    = -0.10   # knife-edge threshold; ON only after multi-year calibration
+WEAK_BOUNCE_EXIT = False   # MA20 qualifier on exec-into-strength: genuine reclaim → disarm, failed bounce → EXIT (v3.6)
 # ── v3.3 Asia overnight diagnostics (display only, never position logic) ──
 GAP_THR          = 0.003   # minimum SOXX overnight return to count as an up-gap (0.3%)
 # ────────────────────────────────────────────────────────────────────────────
@@ -125,6 +126,7 @@ def _run_state_machine(
     ensemble_arm: bool = ENSEMBLE_ARM,
     crash_gate: bool = CRASH_GATE,
     crash_gate_dd: float = CRASH_GATE_DD,
+    weak_bounce_exit: bool = WEAK_BOUNCE_EXIT,
 ) -> tuple[list[str], list[bool], list[dict]]:
     """
     Run state machine row-by-row on YTD df (with pre-computed derived columns).
@@ -136,6 +138,8 @@ def _run_state_machine(
 
     ensemble_arm: when True, armed = 2-of-3 vote of hybrid conditions at N=15/20/25.
     crash_gate: when True, suppress ABS arm (id20 < -3%) when dd20 ≤ crash_gate_dd.
+    weak_bounce_exit: when True, modify exec-into-strength exit in MONITOR state:
+        close < ma20 → EXIT (failed bounce); close >= ma20 → RISK_ON (genuine reclaim, no trade).
 
     Key design decisions (Change 1 / order-of-operations — any deviation is a CI failure):
     1. Compute today's signals from today's official close.
@@ -253,11 +257,14 @@ def _run_state_machine(
             if not accum_active and armed_cond:
                 display_state = MONITOR
                 if strength:
-                    state = EXIT
-                    sessions_since_fired = 0
-                    reenter_above_ma20 = 0
-                    trades.append({"date": date_str, "price": round(close, 2),
-                                   "action": "EXIT", "reason": "exec-into-strength"})
+                    if weak_bounce_exit and close >= ma20:
+                        pass  # genuine reclaim — stay RISK_ON, no trade; band shows MONITOR this session
+                    else:
+                        state = EXIT
+                        sessions_since_fired = 0
+                        reenter_above_ma20 = 0
+                        trades.append({"date": date_str, "price": round(close, 2),
+                                       "action": "EXIT", "reason": "exec-into-strength"})
                 else:
                     state = MONITOR
                     sessions_since_arm = 0
@@ -274,12 +281,16 @@ def _run_state_machine(
                 state = RISK_ON
                 sessions_since_arm = 0
             elif strength:
-                state = EXIT
-                sessions_since_fired = 0
-                reenter_above_ma20 = 0
-                trades.append({"date": date_str, "price": round(close, 2),
-                               "action": "EXIT", "reason": "exec-into-strength"})
-                sessions_since_arm = 0
+                if weak_bounce_exit and close >= ma20:
+                    state = RISK_ON  # genuine reclaim — disarm without trade
+                    sessions_since_arm = 0
+                else:
+                    state = EXIT
+                    sessions_since_fired = 0
+                    reenter_above_ma20 = 0
+                    trades.append({"date": date_str, "price": round(close, 2),
+                                   "action": "EXIT", "reason": "exec-into-strength"})
+                    sessions_since_arm = 0
             elif sessions_since_arm >= ESCAPE_SESSIONS and close < ma20:
                 state = EXIT
                 sessions_since_fired = 0
