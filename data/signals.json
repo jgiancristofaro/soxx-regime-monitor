@@ -1,5 +1,5 @@
 {
-  "last_session": "2026-07-07",
+  "last_session": "2026-07-08",
   "data_stale": false,
   "state": {
     "machine": "EXIT",
@@ -8,7 +8,7 @@
     "position_multiplier": 0.0,
     "suggested_size": 0.0,
     "arm_mode_a": true,
-    "arm_mode_b": true,
+    "arm_mode_b": false,
     "short_permission": {
       "ma50_vol": false,
       "id20_neg": true,
@@ -17,32 +17,32 @@
     }
   },
   "today": {
-    "close": 551.69,
-    "ret": -0.0513,
-    "id20": -0.0848,
-    "on20": 0.1285,
-    "ret20": 0.0469,
-    "id20_z": -1.8489,
-    "on20_mom": 0.0015,
-    "dd20": -0.1577,
-    "vix_slope": 3.21,
-    "real_chg20": 0.04,
-    "ma20": 597.26,
-    "ma50": 550.67,
-    "ma200": 379.04,
-    "rv10": 0.7945,
-    "rv20": 0.8059,
-    "rv20_p90": 0.4912,
-    "turb": 1.5008,
-    "ar1": -0.2036,
-    "rsi14": 45.3762,
+    "close": 562.03,
+    "ret": 0.0187,
+    "id20": -0.057,
+    "on20": 0.0612,
+    "ret20": 0.007,
+    "id20_z": -1.3809,
+    "on20_mom": -0.0782,
+    "dd20": -0.142,
+    "vix_slope": 2.88,
+    "real_chg20": 0.09,
+    "ma20": 596.8,
+    "ma50": 552.68,
+    "ma200": 380.52,
+    "rv10": 0.7262,
+    "rv20": 0.7809,
+    "rv20_p90": 0.498,
+    "turb": 0.3019,
+    "ar1": -0.2053,
+    "rsi14": 47.0885,
     "dist20": 3,
-    "vrp": -0.3459,
+    "vrp": -0.3209,
     "iv30_asof": "2026-07-01",
     "gap_quality": "none",
-    "asia_on20": 0.0759,
+    "asia_on20": 0.01,
     "hollow_count20": 0,
-    "id20_pctl120": 0.0167,
+    "id20_pctl120": 0.0583,
     "id20_is_sample_low": false,
     "id20_is_sample_high": false,
     "id20_history_months": 19
@@ -386,7 +386,8 @@
       "2026-07-01",
       "2026-07-02",
       "2026-07-06",
-      "2026-07-07"
+      "2026-07-07",
+      "2026-07-08"
     ],
     "close": [
       313.35,
@@ -515,7 +516,8 @@
       599.7,
       566.32,
       581.51,
-      551.69
+      551.69,
+      562.03
     ],
     "ma20": [
       303.9,
@@ -644,7 +646,8 @@
       600.15,
       597.7,
       596.65,
-      597.26
+      597.26,
+      596.8
     ],
     "id20": [
       -0.0636,
@@ -773,7 +776,8 @@
       -0.0648,
       -0.122,
       -0.1505,
-      -0.0848
+      -0.085,
+      -0.057
     ],
     "id20_z": [
       -1.2456,
@@ -902,7 +906,8 @@
       -1.6128,
       -2.5405,
       -2.9529,
-      -1.8489
+      -1.8518,
+      -1.3809
     ],
     "on20": [
       0.083,
@@ -1031,7 +1036,8 @@
       0.079,
       0.063,
       0.1383,
-      0.1285
+      0.1287,
+      0.0612
     ],
     "on20_mom": [
       0.0031,
@@ -1160,7 +1166,8 @@
       -0.058,
       -0.1085,
       0.0054,
-      0.0015
+      0.0016,
+      -0.0782
     ],
     "rv20": [
       0.3175,
@@ -1289,7 +1296,8 @@
       0.8484,
       0.8689,
       0.8721,
-      0.8059
+      0.8059,
+      0.7809
     ],
     "equity_strategy": [
       null,
@@ -1407,6 +1415,7 @@
       1.735958,
       1.633174,
       1.656625,
+      1.721595,
       1.721595,
       1.721595,
       1.721595,
@@ -1547,9 +1556,11 @@
       1.753013,
       1.655438,
       1.699841,
-      1.612673
+      1.612673,
+      1.642898
     ],
     "smh_close": [
+      null,
       null,
       null,
       null,
@@ -1805,7 +1816,8 @@
       -0.0239,
       -0.0218,
       0.0588,
-      0.0759
+      0.0759,
+      0.01
     ],
     "id20_pctl120": [
       0.0333,
@@ -1934,14 +1946,15 @@
       0.025,
       0.0,
       0.0,
-      0.0167
+      0.0167,
+      0.0583
     ]
   },
   "checklist": [
     {
       "id": "id20",
       "label": "Intraday 20d stream",
-      "value": -0.0848,
+      "value": -0.057,
       "fmt": "pct1",
       "status": "red",
       "note": "negative = distribution (institutions selling intraday)"
@@ -1949,7 +1962,7 @@
     {
       "id": "on20",
       "label": "Overnight 20d stream",
-      "value": 0.1285,
+      "value": 0.0612,
       "fmt": "pct1",
       "status": "amber",
       "note": "fading overnight bid while id20 negative = divergence resolving"
@@ -1957,15 +1970,15 @@
     {
       "id": "ma",
       "label": "Close vs 20-DMA",
-      "value": -0.0763,
+      "value": -0.0583,
       "fmt": "pct1",
       "status": "red",
-      "note": "re-entry line 597.3"
+      "note": "re-entry line 596.8"
     },
     {
       "id": "rv20",
       "label": "Realized vol (20d)",
-      "value": 0.8059,
+      "value": 0.7809,
       "fmt": "pct0",
       "status": "red",
       "note": "regime normalizes < 50%; sets position size"
@@ -1973,7 +1986,7 @@
     {
       "id": "vrp",
       "label": "IV30 \u2212 RV20",
-      "value": -0.3459,
+      "value": -0.3209,
       "fmt": "pts",
       "status": "amber",
       "note": "puts cheap vs realized \u2014 hedge with options"
@@ -1981,23 +1994,23 @@
     {
       "id": "id20_z",
       "label": "id20 z-score (252d)",
-      "value": -1.8489,
+      "value": -1.3809,
       "fmt": "z",
       "status": "red",
-      "note": "Mode B armed \u2014 z-score below threshold and trend still positive"
+      "note": "z-score below threshold, but 20d trend \u2264 +2% \u2014 Mode B not fully armed"
     },
     {
       "id": "on20_mom",
       "label": "on20 momentum (5d)",
-      "value": 0.0015,
+      "value": -0.0782,
       "fmt": "pct1",
-      "status": "green",
-      "note": "overnight bid momentum positive"
+      "status": "red",
+      "note": "sizing tilt active (\u00d70.8) \u2014 overnight bid fading"
     },
     {
       "id": "real_chg20",
       "label": "Real yield \u039420d",
-      "value": 0.04,
+      "value": 0.09,
       "fmt": "bp",
       "status": "green",
       "note": "stable/falling real yields"
@@ -2069,6 +2082,6 @@
       "pop": 0.1574
     }
   ],
-  "generated_utc": "2026-07-07T23:15:09Z",
+  "generated_utc": "2026-07-08T23:30:35Z",
   "is_live_candle": false
 }
