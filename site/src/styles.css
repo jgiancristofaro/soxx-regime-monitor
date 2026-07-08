@@ -193,6 +193,38 @@ header h1 {
 /* ── Chart area ───────────────────────────────────────────────────────── */
 .chart-col { display: flex; flex-direction: column; gap: 1rem; }
 
+.chart-controls {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.range-btns { display: flex; gap: 2px; }
+
+.range-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.range-btn:hover {
+  background: #253045;
+  color: var(--text);
+  border-color: #4b5563;
+}
+
+.range-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0f1117;
+}
+
 .chart-wrap {
   position: relative;
   height: 280px;

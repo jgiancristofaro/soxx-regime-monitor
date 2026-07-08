@@ -1,7 +1,7 @@
 import './styles.css';
 import type { SignalData } from './types';
 import { renderStatePanel, renderChecklist, renderTradesTable } from './state';
-import { initSignalChart, initEquityChart } from './charts';
+import { initSignalChart, initEquityChart, type Range } from './charts';
 import { fmtDatetime } from './theme';
 
 async function init(): Promise<void> {
@@ -19,8 +19,23 @@ async function init(): Promise<void> {
 
   renderStatePanel(data);
   renderChecklist(data);
-  initSignalChart(data);
-  initEquityChart(data);
+
+  const setSignalRange = initSignalChart(data);
+  const setEquityRange = initEquityChart(data);
+  setSignalRange('YTD');
+  setEquityRange('YTD');
+
+  const btns = document.querySelectorAll<HTMLButtonElement>('#range-btns .range-btn');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const range = (btn.dataset.range ?? 'YTD') as Range;
+      setSignalRange(range);
+      setEquityRange(range);
+    });
+  });
+
   renderTradesTable(data);
 
   const footerEl = document.getElementById('last-run')!;

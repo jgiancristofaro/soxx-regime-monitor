@@ -60,6 +60,16 @@
     <!-- Right column: charts -->
     <section class="chart-col">
 
+      <div class="chart-controls">
+        <div class="range-btns" id="range-btns">
+          <button class="range-btn" data-range="5D">5D</button>
+          <button class="range-btn" data-range="1M">1M</button>
+          <button class="range-btn" data-range="3M">3M</button>
+          <button class="range-btn" data-range="6M">6M</button>
+          <button class="range-btn active" data-range="YTD">YTD</button>
+        </div>
+      </div>
+
       <div class="card">
         <h2>id20 &amp; on20 — 20-Day Intraday &amp; Overnight Streams</h2>
         <div class="chart-wrap">
@@ -68,7 +78,7 @@
       </div>
 
       <div class="card">
-        <h2>Equity Curve — Strategy vs Buy &amp; Hold (YTD)</h2>
+        <h2>Equity Curve — Strategy vs Buy &amp; Hold</h2>
         <div class="chart-wrap">
           <canvas id="equity-chart"></canvas>
         </div>
