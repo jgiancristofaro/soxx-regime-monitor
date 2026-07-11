@@ -18,8 +18,9 @@ ACCUM_STOP_ID    = 0.01    # invalidate ACCUM if id20 rolls back below +1%
 EXIT_ID          = 0.01    # exec-into-strength: daily intraday > +1%
 EXIT_DAY         = 0.015   # OR total daily return > +1.5%
 ESCAPE_SESSIONS  = 3       # escape valve after N sessions armed with no strength
-DISARM_SESSIONS  = 2       # retained for documentation; disarm is now unconditional
+DISARM_SESSIONS  = 2       # superseded by REENTER_CLEAR_SESSIONS; retained as documentation alias
 REENTER_MA_DAYS  = 2       # closes above ma20 needed for trend-reclaim re-entry
+REENTER_CLEAR_SESSIONS = 2  # consecutive arm-clear sessions required for disarm-2 re-entry
 WARMUP_SESSIONS  = 20      # first N sessions of YTD are warm-up (no signals)
 SLIPPAGE_BPS     = 5       # basis points per trade side (applied in backtest)
 # ── on20_mom sizing tilt (display only — never a state transition) ─────────
@@ -159,6 +160,7 @@ def _run_state_machine(
     sessions_since_arm = 0
     sessions_since_fired = 0
     reenter_above_ma20 = 0
+    disarm_clear_count = 0
     accum_active = False
     accum_start_close: float | None = None
 
@@ -263,6 +265,7 @@ def _run_state_machine(
                         state = EXIT
                         sessions_since_fired = 0
                         reenter_above_ma20 = 0
+                        disarm_clear_count = 0
                         trades.append({"date": date_str, "price": round(close, 2),
                                        "action": "EXIT", "reason": "exec-into-strength"})
                 else:
@@ -288,6 +291,7 @@ def _run_state_machine(
                     state = EXIT
                     sessions_since_fired = 0
                     reenter_above_ma20 = 0
+                    disarm_clear_count = 0
                     trades.append({"date": date_str, "price": round(close, 2),
                                    "action": "EXIT", "reason": "exec-into-strength"})
                     sessions_since_arm = 0
@@ -295,6 +299,7 @@ def _run_state_machine(
                 state = EXIT
                 sessions_since_fired = 0
                 reenter_above_ma20 = 0
+                disarm_clear_count = 0
                 trades.append({"date": date_str, "price": round(close, 2),
                                "action": "EXIT", "reason": "escape-valve"})
                 sessions_since_arm = 0
@@ -305,12 +310,16 @@ def _run_state_machine(
             accum_start_close = None
 
             if not armed_cond:
-                state = RISK_ON
-                sessions_since_fired = 0
-                reenter_above_ma20 = 0
-                trades.append({"date": date_str, "price": round(close, 2),
-                               "action": "REENTER", "reason": "disarm"})
+                disarm_clear_count += 1
+                if disarm_clear_count >= REENTER_CLEAR_SESSIONS:
+                    state = RISK_ON
+                    sessions_since_fired = 0
+                    reenter_above_ma20 = 0
+                    disarm_clear_count = 0
+                    trades.append({"date": date_str, "price": round(close, 2),
+                                   "action": "REENTER", "reason": "disarm-2"})
             elif acc_cond:
+                disarm_clear_count = 0
                 state = RISK_ON
                 sessions_since_fired = 0
                 reenter_above_ma20 = 0
@@ -319,6 +328,7 @@ def _run_state_machine(
                 trades.append({"date": date_str, "price": round(close, 2),
                                "action": "REENTER", "reason": "accumulation flip"})
             elif close > ma20:
+                disarm_clear_count = 0
                 reenter_above_ma20 += 1
                 if reenter_above_ma20 >= REENTER_MA_DAYS and id20 > 0:
                     state = RISK_ON
@@ -327,6 +337,7 @@ def _run_state_machine(
                     trades.append({"date": date_str, "price": round(close, 2),
                                    "action": "REENTER", "reason": "trend reclaim"})
             else:
+                disarm_clear_count = 0
                 reenter_above_ma20 = 0
 
         states.append(display_state)
@@ -649,6 +660,63 @@ def compute_signals(
     }
 
 
+def _validate_consistency(result: dict) -> None:
+    """Raise ValueError if result violates output-consistency invariants.
+
+    Called before writing signals.json; any violation aborts the pipeline write.
+    Invariants:
+    1. bands[-1].state == state.machine
+    2. position_multiplier == 0.0 iff state.machine == EXIT
+    3. last trade action == EXIT iff currently EXIT; == REENTER iff currently invested
+    4. equity non-increasing on re-entry fill days (prior position was 0)
+    """
+    state = result["state"]["machine"]
+    pos_mult = result["state"]["position_multiplier"]
+    bands = result.get("bands", [])
+    trades = result.get("trades", [])
+    dates = result["series"]["dates"]
+    eq_s = result["series"]["equity_strategy"]
+
+    if bands and bands[-1]["state"] != state:
+        raise ValueError(
+            f"Consistency violation: bands[-1].state={bands[-1]['state']!r} != state.machine={state!r}"
+        )
+
+    if state == "EXIT" and pos_mult != 0.0:
+        raise ValueError(
+            f"Consistency violation: state=EXIT but position_multiplier={pos_mult} (expected 0.0)"
+        )
+    if state not in ("EXIT", "WARMUP") and pos_mult == 0.0:
+        raise ValueError(
+            f"Consistency violation: state={state} (invested) but position_multiplier=0.0"
+        )
+
+    action_trades = [t for t in trades if t["action"] in ("EXIT", "REENTER")]
+    if action_trades:
+        last_action = action_trades[-1]["action"]
+        if state == "EXIT" and last_action != "EXIT":
+            raise ValueError(
+                f"Consistency violation: state=EXIT but last trade action={last_action!r} "
+                f"on {action_trades[-1]['date']}"
+            )
+        if state in ("RISK_ON", "MONITOR", "ACCUM") and last_action != "REENTER":
+            raise ValueError(
+                f"Consistency violation: state={state} (invested) but last trade action={last_action!r} "
+                f"on {action_trades[-1]['date']}"
+            )
+
+    reenter_dates = {t["date"] for t in trades if t["action"] == "REENTER"}
+    for rd in reenter_dates:
+        if rd in dates:
+            i = dates.index(rd)
+            if i > 0 and eq_s[i] is not None and eq_s[i - 1] is not None:
+                if eq_s[i] > eq_s[i - 1] + 1e-6:
+                    raise ValueError(
+                        f"Consistency violation: equity increased on re-entry fill day {rd} "
+                        f"({eq_s[i]:.6f} > {eq_s[i-1]:.6f}) — prior position must have been non-zero"
+                    )
+
+
 def _safe_val(row, col):
     """Return float or None for a pandas Series row (NaN → None)."""
     try:
@@ -692,7 +760,17 @@ def _build_checklist(last: pd.Series, last_ytd: pd.Series, vrp: float | None, ma
                 else "amber" if (on20 is not None and id20 is not None and on20 > 0 and id20 < 0)
                 else "green"
             ),
-            "note": "fading overnight bid while id20 negative = divergence resolving",
+            "note": (
+                "supporting overnight bid while id20 negative (divergence)"
+                if (on20 is not None and on20 > 0 and id20 is not None and id20 < 0)
+                else "both streams positive (aligned)"
+                if (on20 is not None and on20 > 0)
+                else "both streams negative (downtrend)"
+                if (on20 is not None and on20 < 0 and id20 is not None and id20 < 0)
+                else "overnight fading while intraday positive (nascent divergence)"
+                if (on20 is not None and on20 < 0)
+                else "insufficient data"
+            ),
         },
         {
             "id": "ma", "label": "Close vs 20-DMA",

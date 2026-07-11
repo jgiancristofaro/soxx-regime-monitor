@@ -263,7 +263,7 @@ def _fetch_hourly_bars(df_daily: pd.DataFrame) -> None:
 def main():
     sys.path.insert(0, str(ROOT))
     from pipeline.sources import fetch_ohlcv, load_fixture
-    from pipeline.state_machine import compute_signals
+    from pipeline.state_machine import compute_signals, _validate_consistency
 
     history_path = DATA_DIR / "history.csv"
     signals_path = DATA_DIR / "signals.json"
@@ -331,6 +331,8 @@ def main():
         if r.get("grade")
     ]
     result["events"] = events + reaction_events
+
+    _validate_consistency(result)
 
     signals_path.parent.mkdir(parents=True, exist_ok=True)
     with open(signals_path, "w") as f:
