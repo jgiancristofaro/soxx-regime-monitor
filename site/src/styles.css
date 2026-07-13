@@ -71,6 +71,12 @@ header h1 {
 .alert-warn  { background: #451a03; color: #fdba74; border-left: 3px solid #f59e0b; }
 .alert-error { background: #450a0a; color: #fca5a5; border-left: 3px solid #ef4444; }
 
+/* ── Preview banner ───────────────────────────────────────────────────── */
+.preview-banner { margin: 0.75rem 0; padding: 0.65rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 500; }
+.preview-active       { background: #451a03; color: #fdba74; border-left: 3px solid #d97706; }
+.preview-late         { background: #1c1917; color: #9ca3af; border-left: 3px solid #6b7280; }
+.preview-settled-diff { background: #1c1917; color: #9ca3af; border-left: 3px solid #6b7280; }
+
 /* ── Main grid ────────────────────────────────────────────────────────── */
 .main-grid {
   display: grid;

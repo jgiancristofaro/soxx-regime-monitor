@@ -27,6 +27,7 @@
 | [016](#016) | 2026-07-07 | Erratum v3.6.1: corrected WEAK_BOUNCE_EXIT 2026 evidence, status downgrade to experimental, Y7 test |
 | [017](#017) | 2026-07-11 | Change Order v3.7: canonical disarm-2 re-entry, consistency validator, Z1-Z6 tests |
 | [018](#018) | 2026-07-12 | Erratum v3.7.1: reject disarm-2, restore 1-session disarm; update Z1-Z4, golden record |
+| [019](#019) | 2026-07-13 | Change Order v3.8: Preview Run & Execution Protocol |
 
 ---
 
@@ -455,5 +456,60 @@ The on20 checklist card note is now selected from 4 value-dependent templates ba
 **Methodology:** §4.5 Re-entry reverted to 1-session disarm description. §10 trade log reverted: Feb 06 REENTER ~$348.13, reason "disarm". Pre-erratum snapshot archived as `site/public/methodology-archive/2026-07-11b.html`.
 
 **CLAUDE.md:** `REENTER_CLEAR_SESSIONS = 2` removed. `DISARM_SESSIONS` comment reverted. Golden record trade #2 reverted to Feb 06, ~348.13, "disarm".
+
+---
+
+<a name="019"></a>
+## [019] 2026-07-13 — Change Order v3.8: Preview Run & Execution Protocol
+
+**Origin:** Execution-timing gap: the settle run produces `signals.json` at ~6pm ET, but signals are deterministic functions of the 4pm close. All actionable trades were executing next-open (+3.1% / −5.1% vs backtest fills). Change Order v3.8 adds a pre-close PREVIEW run enabling market-on-close execution without touching the settled record.
+
+**Zero changes to:** signal logic, state transitions, sizing, settled golden record, or the v3.6 live-candle guard.
+
+**Two-run schedule:**
+- **PREVIEW** (`preview.yml`): cron `'10 19 * * 1-5'` (EDT) and `'10 20 * * 1-5'` (EST). Both sleep until 15:38 ET, then run `preview.py`. Hard abort if past 15:59 ET. Writes `data/preview.json` only.
+- **SETTLE** (`daily.yml`): unchanged 22:15 UTC cron + manual dispatch. Now also: marks `preview.json` as settled, appends `data/preview_log.csv`.
+
+**New files:**
+- `pipeline/preview.py`: fetches 1-minute intraday bars, builds provisional bar (open=today's open, close=snapshot, high/low=session extremes, volume=0), appends in-memory to history, runs standard state machine projection, classifies action (CLEAR/BORDERLINE/NONE) by margin over triggering threshold. Never writes to `signals.json`, `history.csv`, or any settled artifact.
+- `.github/workflows/preview.yml`: two-cron schedule, sleep-until-15:38-ET step, run `preview.py`, commit/push.
+- `pipeline/tests/test_preview.py`: P1-P7 test vectors.
+
+**`data/preview.json` schema (added fields):** `settled: bool`, `settled_action: str|null` — written by settle run via `_settle_supersedes_preview()`.
+
+**Buffer thresholds (v3.8 Change 3):** `BUFFER_DAY=0.005` (id_t/ret_t), `BUFFER_20D=0.005` (id20-based), `BUFFER_MA=0.004` (close vs MA20). Provisional; calibrate against `preview_log.csv` after ~60 sessions.
+
+**`pipeline/compute.py` change:** Added `_settle_supersedes_preview(result, last_session)` — called after writing `signals.json`. Reads `preview.json`, records `settled_action` from `result["trades"]`, deduplicates by date, appends to `data/preview_log.csv`, then marks `preview.json` as settled.
+
+**`daily.yml` change:** "Copy data for site build" and "Commit updated data" steps updated to include `data/preview.json`, `site/public/data/preview.json`, and `data/preview_log.csv` when they exist. Added `git pull --rebase` before push to survive concurrent preview commits.
+
+**Frontend changes:**
+- `site/index.html`: added `<div id="preview-banner">` before `.main-grid`.
+- `site/src/main.ts`: added `loadPreview(lastSession)` called at end of `init()`. `renderPreviewBanner()` uses safe DOM methods (no innerHTML). Logic: `preview.date > lastSession AND NOT settled` → amber PREVIEW banner; `preview.date == lastSession AND settled AND projected_action != settled_action` → gray disagreement notice; otherwise hidden. Late previews render in gray with "LATE" tag.
+- `site/src/styles.css`: added `.preview-banner`, `.preview-active` (amber), `.preview-late` (gray), `.preview-settled-diff` (gray).
+
+**New dependency:** `pytz==2024.2`, `exchange_calendars==4.5.4` (already added to `requirements.txt` in prior session setup).
+
+**Half-day guard:** `_is_half_day()` uses `exchange_calendars` XNYS calendar; falls back to a hardcoded set. On half-days, preview writes `skipped: "half-day"` and exits cleanly.
+
+**Volume:** `volume_unreliable: true` always present in preview output — volume-dependent display fields (dist20, volume spike) must not be trusted intraday. Core transitions (arm, exit-into-strength, escape valve, disarm, all three re-entry paths) are volume-free by construction and preview cleanly.
+
+**Operator execution protocol (added to README/METHODOLOGY):**
+- CLEAR + not late → MOC by 3:48pm ET
+- BORDERLINE or late → confirm at 6pm settle, then next-open 9:45–10:00am limit
+- No transition → nothing to do
+
+**`preview_log.csv` columns:** `date, snapshot_et, projected_action, projected_class, settled_action, agreed, spot_at_preview, close`. Calibration dataset for buffer threshold recalibration after ~60 sessions.
+
+**Guard interactions (Change 7):** v3.6 live-candle guard unchanged and authoritative for `signals.json`. v3.7 consistency validator applies only to settle-run outputs; `preview.py` does not call `_validate_consistency`.
+
+**Test results (P1-P7):** All using fixture/override injection; no network required.
+- P1: preview writes only `preview.json` (no signals.json, history.csv, etc.)
+- P2: buffer classifier CLEAR/BORDERLINE at ±0.4/0.6pp for id20_abs and id_t triggers
+- P3: settle supersedes preview, appends log, marks settled, leaves signals.json byte-identical
+- P4: late=True after 15:46; sys.exit(1) after 15:59 without writing
+- P5: volume_unreliable=True always
+- P6: half-day → skipped="half-day"
+- P7: settled golden record byte-identical (signals.json unchanged by _settle_supersedes_preview)
 
 ---

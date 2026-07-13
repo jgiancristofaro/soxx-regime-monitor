@@ -260,6 +260,70 @@ def _fetch_hourly_bars(df_daily: pd.DataFrame) -> None:
         print(f"  Hourly bars skipped (non-blocking): {e}")
 
 
+def _settle_supersedes_preview(result: dict, last_session: str) -> None:
+    """
+    Called by the settle run after signals.json is written.
+    If data/preview.json exists for today's settled session, record the
+    settled outcome, append a row to data/preview_log.csv, and mark the
+    preview as settled so the frontend can compare projected vs actual.
+    """
+    preview_path = DATA_DIR / "preview.json"
+    if not preview_path.exists():
+        return
+
+    with open(preview_path) as f:
+        preview = json.load(f)
+
+    # Only process if the preview covers today's settled session
+    if preview.get("date") != last_session:
+        return
+
+    projected_action = preview.get("projected_action", "NONE")
+    last_trade = next(
+        (t for t in reversed(result.get("trades", [])) if t.get("date") == last_session),
+        None,
+    )
+    settled_action = last_trade["action"] if last_trade else "NONE"
+    agreed = settled_action == projected_action
+
+    # Append to preview_log.csv (deduped by date)
+    log_path = DATA_DIR / "preview_log.csv"
+    fieldnames = [
+        "date", "snapshot_et", "projected_action", "projected_class",
+        "settled_action", "agreed", "spot_at_preview", "close",
+    ]
+    existing_dates: set = set()
+    if log_path.exists():
+        with open(log_path, newline="") as f:
+            for r in csv.DictReader(f):
+                existing_dates.add(r.get("date", ""))
+    if last_session not in existing_dates:
+        write_header = not log_path.exists()
+        close_val = float(result.get("today", {}).get("close", 0))
+        with open(log_path, "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if write_header:
+                writer.writeheader()
+            writer.writerow({
+                "date": last_session,
+                "snapshot_et": preview.get("snapshot_et", ""),
+                "projected_action": projected_action,
+                "projected_class": preview.get("action_class", "NONE"),
+                "settled_action": settled_action,
+                "agreed": agreed,
+                "spot_at_preview": preview.get("spot", ""),
+                "close": round(close_val, 2),
+            })
+        print(f"  Preview log: projected={projected_action} settled={settled_action} agreed={agreed}")
+
+    # Mark preview.json as settled (frontend reads this to switch banner state)
+    preview["settled"] = True
+    preview["settled_action"] = settled_action
+    preview["moc_eligible"] = False
+    preview_path.write_text(json.dumps(preview, indent=2))
+    print(f"  Preview superseded: settled_action={settled_action}")
+
+
 def main():
     sys.path.insert(0, str(ROOT))
     from pipeline.sources import fetch_ohlcv, load_fixture
@@ -337,6 +401,8 @@ def main():
     signals_path.parent.mkdir(parents=True, exist_ok=True)
     with open(signals_path, "w") as f:
         json.dump(result, f, indent=2)
+
+    _settle_supersedes_preview(result, result.get("last_session", today_str))
 
     print(f"\nSignals written to {signals_path}")
     print(f"  State: {result['state']['machine']}")

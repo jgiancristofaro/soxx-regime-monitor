@@ -33,13 +33,17 @@ jobs:
         run: |
           mkdir -p site/public/data
           cp data/signals.json site/public/data/signals.json
+          if [ -f data/preview.json ]; then cp data/preview.json site/public/data/preview.json; fi
 
       - name: Commit updated data
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/signals.json site/public/data/signals.json data/history.csv
+          if [ -f data/preview.json ]; then git add data/preview.json site/public/data/preview.json; fi
+          if [ -f data/preview_log.csv ]; then git add data/preview_log.csv; fi
           git diff --staged --quiet || git commit -m "chore: daily data update $(date -u +%Y-%m-%d)"
+          git pull --rebase origin main
           git push
 
       - name: Trigger deploy
