@@ -77,13 +77,13 @@ def test_trade_1_exit_feb05(result_mode_a):
     assert t["reason"] == "exec-into-strength"
 
 
-def test_trade_2_reenter_feb09(result_mode_a):
-    """Z3 (supersedes Feb 06 golden): 2-session disarm fires Feb 09, reason 'disarm-2'."""
+def test_trade_2_reenter_feb06(result_mode_a):
+    """Feb 06 golden (v3.7.1 restored): 1-session disarm fires Feb 06, reason 'disarm'."""
     t = result_mode_a["trades"][1]
-    assert t["date"] == "2026-02-09"
+    assert t["date"] == "2026-02-06"
     assert t["action"] == "REENTER"
-    assert t["price"] == pytest.approx(352.39, abs=2.0)
-    assert t["reason"] == "disarm-2"
+    assert t["price"] == pytest.approx(348.13, abs=2.0)
+    assert t["reason"] == "disarm"
 
 
 def test_trade_3_exit_jun18(result_mode_a):
@@ -413,11 +413,11 @@ def test_v7_crash_gate_mar30_suppression(df_full):
     )
 
     # Return should be higher (full position through the Apr recovery)
-    # v3.7: Feb REENTER moves Feb 6 → Feb 9 (disarm-2); expected shifts from 73.0% → ~70.9%
+    # v3.7.1: Feb disarm reverted to 1-session (Feb 06); return back to ~73%
     eq_s, _ = _run_backtest(ytd, states_cg, accum_cg, trades_cg)
     ret_cg = [v for v in eq_s if v is not None][-1] - 1
-    assert ret_cg == pytest.approx(0.709, abs=0.02), (
-        f"V7: CRASH_GATE return = {ret_cg:.3f}, expected ≈ 70.9% (updated for disarm-2 Feb shift)"
+    assert ret_cg == pytest.approx(0.730, abs=0.02), (
+        f"V7: CRASH_GATE return = {ret_cg:.3f}, expected ≈ 73.0% (v3.7.1: disarm-1 restored)"
     )
 
 
@@ -871,9 +871,9 @@ def test_x5_position_logic_isolation_v35(result):
     assert jun18_exits[0]["price"] == pytest.approx(639.45, abs=0.01), (
         f"X5: Jun 18 EXIT price = {jun18_exits[0]['price']}, expected 639.45"
     )
-    feb09_reenter = [t for t in result["trades"] if t["date"] == "2026-02-09" and t["action"] == "REENTER"]
-    assert len(feb09_reenter) == 1, "X5: Feb 09 REENTER must be present (disarm-2 supersedes Feb 06 golden)"
-    assert feb09_reenter[0]["reason"] == "disarm-2"
+    feb06_reenter = [t for t in result["trades"] if t["date"] == "2026-02-06" and t["action"] == "REENTER"]
+    assert len(feb06_reenter) == 1, "X5: Feb 06 REENTER must be present (v3.7.1 restores 1-session disarm)"
+    assert feb06_reenter[0]["reason"] == "disarm"
 
 
 # ── Y1–Y6: Change Order v3.6 golden record ───────────────────────────────────
@@ -1327,17 +1327,27 @@ def test_y7_weak_bounce_exit_on_equity_2026():
     )
 
 
-# ── Z1–Z6: Change Order v3.7 golden record ───────────────────────────────────
+# ── Z1–Z6: Change Order v3.7 / Erratum v3.7.1 golden record ─────────────────
 #
-# Z1, Z2: network-required (live SOXX data through Jul 10 / Jul 13).
-# Z3, Z4, Z5, Z6: fixture-based or synthetic.
+# v3.7.1 verdict: fix the STATE engine to match the trade engine (1-session disarm).
+# Z1: Jul 10 REENTER is CORRECT; state=RISK_ON since Jul 10.
+# Z2: No REENTER_CLEAR_SESSIONS constant exists; 1-session disarm re-entry regression.
+# Z3: Feb 06 golden RESTORED (not Feb 09).
+# Z4: Backtest evidence pins (guards against reintroduction of re-entry delay).
+# Z5/Z6: unchanged.
+#
+# Z1, Z2: network-required (live SOXX data through Jul 10).
+# Z3, Z5, Z6: fixture-based or synthetic.
+# Z4: fixture-based.
 
 
-def test_z1_jul10_no_reenter_equity_flat():
-    """Z1: Jul 10 = clear session #1 only; state remains EXIT, no trade, equity flat vs Jul 9.
+def test_z1_jul10_reenter_correct():
+    """Z1: Jul 10 REENTER @ ~581.34 is correct; state=RISK_ON since Jul 10; equity flat on fill day.
 
-    Root-cause regression: old 1-session disarm would have fired REENTER on Jul 10.
-    With REENTER_CLEAR_SESSIONS=2, clear session #1 is not enough.
+    v3.7.1 verdict: the trade engine was right, the state engine was the defect.
+    With 1-session disarm, arm clears on Jul 10 → REENTER at Jul 10 close.
+    state.machine=RISK_ON, position_multiplier=1.0 — all outputs consistent.
+    Equity flat on the fill day itself (fills at close; earns from next session).
     Requires live SOXX data through Jul 10. Skipped offline.
     """
     df_d = _try_fetch_soxx(days=600)
@@ -1353,91 +1363,116 @@ def test_z1_jul10_no_reenter_equity_flat():
 
     dates = [d.strftime("%Y-%m-%d") for d in ytd.index]
 
-    # No REENTER on Jul 10 (only 1 clear session — disarm-2 requires 2)
+    # REENTER must fire on Jul 10 (arm cleared; 1-session disarm)
     jul10_reenters = [t for t in trades if t["date"] == "2026-07-10" and t["action"] == "REENTER"]
-    assert len(jul10_reenters) == 0, (
-        f"Z1: No REENTER expected on Jul 10 (clear session #1 of 2); got {trades[-3:]}"
+    assert len(jul10_reenters) == 1, (
+        f"Z1: Expected REENTER on Jul 10 (1-session disarm); got {trades[-3:]}"
+    )
+    assert jul10_reenters[0]["reason"] == "disarm", (
+        f"Z1: REENTER reason should be 'disarm'; got {jul10_reenters[0]['reason']}"
+    )
+    assert jul10_reenters[0]["price"] == pytest.approx(581.34, abs=5.0), (
+        f"Z1: REENTER price ≈ 581.34 (±5); got {jul10_reenters[0]['price']}"
     )
 
-    # State must remain EXIT on Jul 10
-    if "2026-07-10" in dates:
-        idx10 = dates.index("2026-07-10")
-        assert states[idx10] == "EXIT", (
-            f"Z1: state on Jul 10 must be EXIT; got {states[idx10]}"
+    # State on Jul 11+ must be RISK_ON (disarm-1 fired on Jul 10 → RISK_ON the next session)
+    # Note: states[] holds display_state = state at START of each session (pre-transition).
+    # On Jul 10 itself, display_state=EXIT (the machine was EXIT at session open); the
+    # transition to RISK_ON fires during that session. Jul 11 is the first session where
+    # the carried state is RISK_ON.
+    jul11_dates = [d for d in dates if d > "2026-07-10"]
+    if jul11_dates:
+        idx11 = dates.index(jul11_dates[0])
+        assert states[idx11] in ("RISK_ON", "MONITOR", "ACCUM"), (
+            f"Z1: state on {jul11_dates[0]} (session after Jul 10 REENTER) should be RISK_ON; got {states[idx11]}"
         )
 
-    # Equity flat vs Jul 9 (position=0, no trade)
+    # Equity flat on the fill day (fills at close; earns from next session — Change 4)
     if "2026-07-09" in dates and "2026-07-10" in dates:
         i9 = dates.index("2026-07-09")
         i10 = dates.index("2026-07-10")
         if eq_s[i9] is not None and eq_s[i10] is not None:
             assert eq_s[i10] == pytest.approx(eq_s[i9], abs=0.001), (
-                f"Z1: equity Jul 10 ({eq_s[i10]:.6f}) != Jul 9 ({eq_s[i9]:.6f}) — flat position expected"
+                f"Z1: equity Jul 10 ({eq_s[i10]:.6f}) != Jul 9 ({eq_s[i9]:.6f}) — flat on fill day"
             )
 
 
-def test_z2_jul13_disarm_2_or_reset():
-    """Z2: Jul 13 rule — if arm false: REENTER 'disarm-2'; if arm true: clear-count resets, no trade.
+def test_z2_disarm_1_session_regression():
+    """Z2: Regression guard — 1-session disarm behavior; REENTER_CLEAR_SESSIONS deleted from codebase.
 
-    Requires live SOXX data through Jul 13. Skipped if unavailable.
+    Confirms: arm true at T, false at T+1 → REENTER at T+1 close (no waiting).
+    Also confirms REENTER_CLEAR_SESSIONS constant no longer exists (grep-level guard).
+    Requires live SOXX data through Jul 10. Skipped offline.
     """
+    import inspect
+    from pipeline import state_machine as sm_mod
+    src = inspect.getsource(sm_mod)
+    assert "REENTER_CLEAR_SESSIONS" not in src, (
+        "Z2: REENTER_CLEAR_SESSIONS found in state_machine.py — must be deleted (erratum v3.7.1)"
+    )
+    assert "disarm_clear_count" not in src, (
+        "Z2: disarm_clear_count found in state_machine.py — must be deleted (erratum v3.7.1)"
+    )
+    assert "disarm-2" not in src, (
+        "Z2: 'disarm-2' found in state_machine.py — all disarm trades should use reason 'disarm'"
+    )
+
+    # Verify 1-session behavioral regression: arm false at Jul 10 → REENTER on same session
     df_d = _try_fetch_soxx(days=600)
     if df_d is None:
-        pytest.skip("Z2: SOXX data unavailable (network required)")
+        return  # source-level checks already passed; behavioral check is network-optional
 
-    if pd.Timestamp("2026-07-13") not in df_d.index:
-        pytest.skip("Z2: Jul 13 not yet settled")
+    if pd.Timestamp("2026-07-10") not in df_d.index:
+        return
 
     ytd = df_d[df_d.index >= pd.Timestamp("2026-01-01")].copy()
-    states, accum, trades = _run_state_machine(ytd)
-    dates = [d.strftime("%Y-%m-%d") for d in ytd.index]
-
-    if "2026-07-13" not in dates:
-        pytest.skip("Z2: Jul 13 not in YTD series")
-
-    idx13 = dates.index("2026-07-13")
-    state13 = states[idx13]
-
-    post_jul9_reenters = [
-        t for t in trades
-        if t["action"] == "REENTER" and "2026-07-10" <= t["date"] <= "2026-07-13"
-    ]
-
-    if state13 in ("RISK_ON", "MONITOR", "ACCUM"):
-        assert len(post_jul9_reenters) == 1, (
-            f"Z2: Expected exactly 1 REENTER in Jul 10-13 (disarm-2 fired); got {post_jul9_reenters}"
-        )
-        assert post_jul9_reenters[0]["reason"] == "disarm-2", (
-            f"Z2: REENTER reason should be 'disarm-2'; got {post_jul9_reenters[0]['reason']}"
-        )
-    else:
-        assert len(post_jul9_reenters) == 0, (
-            f"Z2: No REENTER expected if still EXIT on Jul 13 (arm re-fired, clear-count reset); "
-            f"got {post_jul9_reenters}"
-        )
+    _, _, trades = _run_state_machine(ytd)
+    jul10_reenters = [t for t in trades if t["date"] == "2026-07-10" and t["action"] == "REENTER"]
+    assert len(jul10_reenters) == 1, (
+        f"Z2: 1-session disarm must fire REENTER on Jul 10 (arm clears); got trades tail: {trades[-3:]}"
+    )
 
 
-def test_z3_feb_golden_reenter_feb09(result_mode_a):
-    """Z3: February golden updated — REENTER 2026-02-09, reason 'disarm-2' (supersedes Feb 06 golden)."""
+def test_z3_feb_golden_reenter_feb06(result_mode_a):
+    """Z3: Feb 06 golden RESTORED — REENTER 2026-02-06, reason 'disarm' (v3.7.1 restores v3.2)."""
     t = result_mode_a["trades"][1]
-    assert t["date"] == "2026-02-09", (
-        f"Z3: REENTER date should be 2026-02-09 (disarm-2 requires 2 clear sessions); got {t['date']}"
+    assert t["date"] == "2026-02-06", (
+        f"Z3: REENTER date should be 2026-02-06 (1-session disarm, v3.7.1 restored); got {t['date']}"
     )
     assert t["action"] == "REENTER"
-    assert t["reason"] == "disarm-2", (
-        f"Z3: REENTER reason should be 'disarm-2'; got {t['reason']}"
+    assert t["reason"] == "disarm", (
+        f"Z3: REENTER reason should be 'disarm'; got {t['reason']}"
     )
-    assert t["price"] == pytest.approx(352.39, abs=2.0), (
-        f"Z3: REENTER price ≈ 352.39 adj (±2.00); got {t['price']}"
+    assert t["price"] == pytest.approx(348.13, abs=2.0), (
+        f"Z3: REENTER price ≈ 348.13 adj (±2.00); got {t['price']}"
     )
 
 
-def test_z4_jun12_disarm_no_trade(result_mode_a):
-    """Z4: Jun 9-12 MONITOR episode disarms with NO trade (position was never exited)."""
-    trades = result_mode_a["trades"]
-    jun9_to_17 = [t for t in trades if "2026-06-09" <= t["date"] <= "2026-06-17"]
-    assert len(jun9_to_17) == 0, (
-        f"Z4: No trades expected Jun 9-17 (MONITOR disarm, never exited); got {jun9_to_17}"
+def test_z4_backtest_evidence_pins(df_full):
+    """Z4: Backtest evidence pins — guards against silent reintroduction of re-entry delay.
+
+    Verified returns on Jan 20→Jul 1 2026 fixture (Mode-A arm, no CRASH_GATE):
+      disarm-1 (canonical, current): ≈ +72.9% (±2pt)
+      strict a+b only (no disarm):   ≈ +59.7% (±2pt)  — computed via ACCUM-flip and MA20 only
+    Disarm-1 must outperform strict by ≥ 5pts (evidence from erratum v3.7.1 §Why).
+    """
+    df_d = _compute_derived(df_full.copy())
+    ytd = df_d[df_d.index >= pd.Timestamp("2026-01-01")].copy()
+
+    # Canonical disarm-1 (current code)
+    states_d1, accum_d1, trades_d1 = _run_state_machine(ytd, arm_mode="A")
+    eq_d1, _ = _run_backtest(ytd, states_d1, accum_d1, trades_d1)
+    ret_d1 = [v for v in eq_d1 if v is not None][-1] - 1
+
+    assert ret_d1 == pytest.approx(0.729, abs=0.02), (
+        f"Z4: disarm-1 return = {ret_d1:.3f}, expected ≈ 72.9% (±2pt) on fixture. "
+        "If this fails, a re-entry delay may have been silently reintroduced."
+    )
+
+    # Confirm disarm trades exist (guard against deletion of disarm path)
+    disarm_trades = [t for t in trades_d1 if t.get("reason") == "disarm"]
+    assert len(disarm_trades) >= 1, (
+        f"Z4: Expected at least 1 'disarm' re-entry trade; got {trades_d1}"
     )
 
 

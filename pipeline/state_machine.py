@@ -18,9 +18,8 @@ ACCUM_STOP_ID    = 0.01    # invalidate ACCUM if id20 rolls back below +1%
 EXIT_ID          = 0.01    # exec-into-strength: daily intraday > +1%
 EXIT_DAY         = 0.015   # OR total daily return > +1.5%
 ESCAPE_SESSIONS  = 3       # escape valve after N sessions armed with no strength
-DISARM_SESSIONS  = 2       # superseded by REENTER_CLEAR_SESSIONS; retained as documentation alias
+DISARM_SESSIONS  = 2       # retained for documentation; disarm is 1-session (immediate on arm-clear)
 REENTER_MA_DAYS  = 2       # closes above ma20 needed for trend-reclaim re-entry
-REENTER_CLEAR_SESSIONS = 2  # consecutive arm-clear sessions required for disarm-2 re-entry
 WARMUP_SESSIONS  = 20      # first N sessions of YTD are warm-up (no signals)
 SLIPPAGE_BPS     = 5       # basis points per trade side (applied in backtest)
 # ── on20_mom sizing tilt (display only — never a state transition) ─────────
@@ -160,7 +159,6 @@ def _run_state_machine(
     sessions_since_arm = 0
     sessions_since_fired = 0
     reenter_above_ma20 = 0
-    disarm_clear_count = 0
     accum_active = False
     accum_start_close: float | None = None
 
@@ -265,7 +263,6 @@ def _run_state_machine(
                         state = EXIT
                         sessions_since_fired = 0
                         reenter_above_ma20 = 0
-                        disarm_clear_count = 0
                         trades.append({"date": date_str, "price": round(close, 2),
                                        "action": "EXIT", "reason": "exec-into-strength"})
                 else:
@@ -291,7 +288,6 @@ def _run_state_machine(
                     state = EXIT
                     sessions_since_fired = 0
                     reenter_above_ma20 = 0
-                    disarm_clear_count = 0
                     trades.append({"date": date_str, "price": round(close, 2),
                                    "action": "EXIT", "reason": "exec-into-strength"})
                     sessions_since_arm = 0
@@ -299,7 +295,6 @@ def _run_state_machine(
                 state = EXIT
                 sessions_since_fired = 0
                 reenter_above_ma20 = 0
-                disarm_clear_count = 0
                 trades.append({"date": date_str, "price": round(close, 2),
                                "action": "EXIT", "reason": "escape-valve"})
                 sessions_since_arm = 0
@@ -310,16 +305,12 @@ def _run_state_machine(
             accum_start_close = None
 
             if not armed_cond:
-                disarm_clear_count += 1
-                if disarm_clear_count >= REENTER_CLEAR_SESSIONS:
-                    state = RISK_ON
-                    sessions_since_fired = 0
-                    reenter_above_ma20 = 0
-                    disarm_clear_count = 0
-                    trades.append({"date": date_str, "price": round(close, 2),
-                                   "action": "REENTER", "reason": "disarm-2"})
+                state = RISK_ON
+                sessions_since_fired = 0
+                reenter_above_ma20 = 0
+                trades.append({"date": date_str, "price": round(close, 2),
+                               "action": "REENTER", "reason": "disarm"})
             elif acc_cond:
-                disarm_clear_count = 0
                 state = RISK_ON
                 sessions_since_fired = 0
                 reenter_above_ma20 = 0
@@ -328,7 +319,6 @@ def _run_state_machine(
                 trades.append({"date": date_str, "price": round(close, 2),
                                "action": "REENTER", "reason": "accumulation flip"})
             elif close > ma20:
-                disarm_clear_count = 0
                 reenter_above_ma20 += 1
                 if reenter_above_ma20 >= REENTER_MA_DAYS and id20 > 0:
                     state = RISK_ON
@@ -337,7 +327,6 @@ def _run_state_machine(
                     trades.append({"date": date_str, "price": round(close, 2),
                                    "action": "REENTER", "reason": "trend reclaim"})
             else:
-                disarm_clear_count = 0
                 reenter_above_ma20 = 0
 
         states.append(display_state)
