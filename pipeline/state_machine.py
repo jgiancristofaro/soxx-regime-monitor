@@ -434,10 +434,31 @@ def compute_signals(
     bands = _build_bands(df_ytd, states, accum_flags)
     eq_s, eq_bh = _run_backtest(df_ytd, states, accum_flags, trades)
 
+    # Fix bands/last_state when a transition fires on the last session.
+    # states[-1] is display_state (pre-transition); if a trade fired on the last date,
+    # the post-transition state must be reflected in state["machine"] and bands[-1].
+    last_date_str = df_ytd.index[-1].strftime("%Y-%m-%d")
+    last_state = states[-1]
+    if trades and trades[-1]["date"] == last_date_str:
+        last_action = trades[-1]["action"]
+        if last_action == "REENTER":
+            last_state = RISK_ON
+        elif last_action == "EXIT":
+            last_state = EXIT
+        # Fix the open band to reflect the post-transition effective state
+        if bands:
+            last_accum_flag = accum_flags[-1]
+            final_eff = ACCUM if (last_state == RISK_ON and last_accum_flag) else last_state
+            if bands[-1]["state"] != final_eff:
+                if bands[-1]["start"] == last_date_str:
+                    bands[-1]["state"] = final_eff
+                else:
+                    bands[-1]["end"] = df_ytd.index[-2].strftime("%Y-%m-%d")
+                    bands.append({"start": last_date_str, "end": None, "state": final_eff})
+
     # 4. Last-row summary
     last = df_full.iloc[-1]
     last_ytd = df_ytd.iloc[-1]
-    last_state = states[-1]
     last_accum = accum_flags[-1]
     pos_mult = 1.0 if last_accum else STATE_POS.get(last_state, 0.0)
     rv20_last = float(last["rv20"]) if not np.isnan(last["rv20"]) else 1.0
