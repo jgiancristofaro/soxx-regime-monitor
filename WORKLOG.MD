@@ -26,6 +26,7 @@
 | [015](#015) | 2026-07-07 | Change Order v3.6: WEAK_BOUNCE_EXIT flag, live-candle guard, Y1-Y6 tests, adjudication doc, dealer-hedging note |
 | [016](#016) | 2026-07-07 | Erratum v3.6.1: corrected WEAK_BOUNCE_EXIT 2026 evidence, status downgrade to experimental, Y7 test |
 | [017](#017) | 2026-07-11 | Change Order v3.7: canonical disarm-2 re-entry, consistency validator, Z1-Z6 tests |
+| [018](#018) | 2026-07-12 | Erratum v3.7.1: reject disarm-2, restore 1-session disarm; update Z1-Z4, golden record |
 
 ---
 
@@ -413,5 +414,46 @@ The on20 checklist card note is now selected from 4 value-dependent templates ba
 **Methodology:** §4.5 Re-entry updated to describe disarm-2 canonical path. §10 trade log updated: Feb 09 REENTER ~$352.39, reason "disarm-2". Snapshot archived as `site/public/methodology-archive/2026-07-11.html` per §6 protocol.
 
 **CLAUDE.md:** Golden record trade #2 updated (Feb 09, ~352.39, disarm-2). `REENTER_CLEAR_SESSIONS = 2` added to constants section.
+
+---
+
+<a name="018"></a>
+## [018] 2026-07-12 — Erratum v3.7.1: reject disarm-2, restore 1-session disarm
+
+**Erratum source:** `ERRATUM_v3.7.1.MD`, issued July 11, 2026, reverses Change 1 from Change Order v3.7.
+
+**Decision:** The 2-session disarm (`REENTER_CLEAR_SESSIONS = 2`) introduced in [017] is rejected on backtest evidence. Disarm-1 (immediate re-entry on arm-clear) outperforms disarm-2 in both available windows:
+
+| Variant | 2026 Jan 20→Jul 10 (B&H +72.3%) | H2-2025 (B&H +25.3%) |
+|---|---|---|
+| Disarm-1 (canonical) | **+72.9%** | **+18.0%** |
+| Disarm-2 (rejected) | +59.7% | +13.8% |
+| Strict paths a+b only | +59.7% | +17.1% |
+
+**Mechanism:** The "confirmation" day on a V-bounce is usually a large session that gets earned rather than confirmed — e.g., disarm-1 re-enters 2026-06-12 @ 596.25; disarm-2 waits through a +5.45% session and re-enters 2026-06-15 @ 628.45, capturing ~5% less of the recovery.
+
+**Decision principle (to prevent re-litigation):** Patience on exits is cheap (exec-into-strength); patience on re-entries is expensive (V-bounces front-load their gains). The twitchiness concern is real but unpriced in 13 months of data and is mitigated by sizing (vol-target × strategic cap), not delay. Revisit only with 2019–2024 calibration data.
+
+**Production fix direction:** The original v3.7 diagnosis was correct that the state/bands/history engine had a defect — but the fix direction inverts. The TRADE engine was correct (1-session disarm → Jul 10 REENTER @ $581.34). The STATE engine is fixed to match the trade engine, not the other way around.
+
+**Code changes:**
+- `REENTER_CLEAR_SESSIONS` constant deleted from `state_machine.py`
+- `disarm_clear_count` counter removed from all EXIT block paths
+- EXIT block reverted to 1-session disarm: `if not armed_cond: → RISK_ON, REENTER "disarm"`
+- v3.7 Changes 2-6 (single state engine, consistency validator, equity fill-timing, dynamic checklist notes, Z5/Z6) all retained
+
+**Test updates (Z1-Z4):**
+- Z1: Jul 10 REENTER @ ~$581.34 "disarm" is CORRECT and stands; state=RISK_ON since Jul 10
+- Z2: Source-level grep guard — `REENTER_CLEAR_SESSIONS` and `disarm_clear_count` must not exist in state_machine.py
+- Z3: Feb 06 REENTER golden RESTORED (reverts the Feb 09 change from [017])
+- Z4: Backtest evidence pins — disarm-1 ≈ +72.9% on fixture (guards against silent reintroduction of delay)
+- V7: Tolerance reverted from `approx(0.709, abs=0.02)` back to `approx(0.730, abs=0.02)` (disarm-1 restores the ~73% return)
+- X5: Reverted from Feb 09 back to Feb 06
+
+**Test suite result:** 60 passed, 1 xfailed (Y4).
+
+**Methodology:** §4.5 Re-entry reverted to 1-session disarm description. §10 trade log reverted: Feb 06 REENTER ~$348.13, reason "disarm". Pre-erratum snapshot archived as `site/public/methodology-archive/2026-07-11b.html`.
+
+**CLAUDE.md:** `REENTER_CLEAR_SESSIONS = 2` removed. `DISARM_SESSIONS` comment reverted. Golden record trade #2 reverted to Feb 06, ~348.13, "disarm".
 
 ---

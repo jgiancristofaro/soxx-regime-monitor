@@ -285,7 +285,7 @@
 <h3>4.5 Re-entry (EXIT → RISK_ON)</h3>
 <p>Any of (evaluated in order each close; first to trigger wins):</p>
 <ul>
-  <li><strong>Disarm persistence (canonical, v3.7):</strong> arm condition evaluates false for 2 <em>consecutive</em> sessions → re-enter at the close of the 2nd clear session. Reason: "disarm-2". One clear session resets the counter; a second clear session is required because a single arm-clear can be a base-effect artifact (e.g. crash days rolling out of the 20-session window). This is the canonical form of the disarm path; constant <code>REENTER_CLEAR_SESSIONS = 2</code>.</li>
+  <li><strong>Disarm (canonical, 1-session):</strong> arm condition evaluates false at this close → re-enter immediately at this close. Reason: "disarm". Patience on re-entries is expensive — V-bounces front-load their gains (confirmed by erratum v3.7.1 backtest: disarm-1 ≈ +72.9% vs. disarm-2 ≈ +59.7%, Jan 20–Jul 10 2026). The twitchiness concern is mitigated by position sizing (vol-target scaling), not by re-entry delay.</li>
   <li><strong>Accumulation flip:</strong> acc condition (<code>id20 &gt; +2%</code> AND <code>ret20 &lt; −2%</code>) triggers while in EXIT → re-entry. Reason: "accumulation flip".</li>
   <li><strong>MA20 recovery:</strong> 2 consecutive sessions above MA20 while <code>id20 &gt; 0</code>. Reason: "trend reclaim".</li>
 </ul>
@@ -383,7 +383,7 @@
 <table>
   <tr><th>Date</th><th>Action</th><th>Price</th><th>Reason</th></tr>
   <tr><td>2026-02-05</td><td>EXIT</td><td>$330.83</td><td>Exec-into-strength</td></tr>
-  <tr><td>2026-02-09</td><td>REENTER</td><td>~$352.39</td><td>Disarm-2 (2-session canonical; −1.2% cost vs 1-session path)</td></tr>
+  <tr><td>2026-02-06</td><td>REENTER</td><td>~$348.13</td><td>Disarm (1-session canonical; arm false Feb 06 close → immediate re-entry)</td></tr>
   <tr><td>2026-06-18</td><td>EXIT</td><td>$639.45</td><td>Exec-into-strength (same-day arm+exit)</td></tr>
 </table>
 

@@ -160,8 +160,7 @@ ACCUM_STOP_ID = 0.01  # invalidate ACCUM if id20 < +1%
 EXIT_ID = 0.01      # exec-into-strength: id_t > +1%
 EXIT_DAY = 0.015    # OR ret_t > +1.5%
 ESCAPE_SESSIONS = 3
-DISARM_SESSIONS = 2  # retained for documentation; superseded by REENTER_CLEAR_SESSIONS
-REENTER_CLEAR_SESSIONS = 2  # v3.7: consecutive arm-clear sessions required for disarm-2 re-entry
+DISARM_SESSIONS = 2  # retained for documentation; disarm is 1-session (immediate on arm-clear)
 SLIPPAGE_BPS = 5    # basis points per trade side (applied in backtest)
 REENTER_MA_DAYS = 2
 WARMUP_SESSIONS = 20
@@ -199,7 +198,7 @@ WEAK_BOUNCE_EXIT = False   # MA20 qualifier: genuine reclaim → disarm, failed 
 | # | Date       | Action  | Close  | Reason                |
 |---|------------|---------|--------|-----------------------|
 | 1 | 2026-02-05 | EXIT    | 330.83 | exec-into-strength    |
-| 2 | 2026-02-09 | REENTER | ~352.39 | disarm-2 (v3.7 canonical; 2 consecutive clear sessions) |
+| 2 | 2026-02-06 | REENTER | ~348.13 | disarm (1-session canonical; arm false Feb 06 → immediate re-entry) |
 | 3 | 2026-06-18 | EXIT    | 639.45 | exec-into-strength    |
 
 ---
