@@ -6,6 +6,7 @@ on:
     paths:
       - 'site/**'
       - 'data/signals.json'
+      - 'data/preview.json'
   workflow_dispatch:
 
 permissions:
@@ -39,6 +40,7 @@ jobs:
         run: |
           mkdir -p site/public/data
           cp data/signals.json site/public/data/signals.json
+          if [ -f data/preview.json ]; then cp data/preview.json site/public/data/preview.json; fi
 
       - name: Build
         run: npm run build
