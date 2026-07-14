@@ -2,10 +2,11 @@ name: Preview Run (3:40pm ET)
 
 on:
   schedule:
-    # EDT (UTC-4): 19:10 UTC = 15:10 ET, then sleep to 15:38
-    - cron: '10 19 * * 1-5'
-    # EST (UTC-5): 20:10 UTC = 15:10 ET, then sleep to 15:38
-    - cron: '10 20 * * 1-5'
+    # EDT (UTC-4): fires ~98min before the 19:38 UTC (15:38 ET) sleep target,
+    # to absorb GitHub Actions cron jitter (observed 60-70min delays on this repo).
+    - cron: '0 18 * * 1-5'
+    # EST (UTC-5): fires ~98min before the 20:38 UTC (15:38 ET) sleep target.
+    - cron: '0 19 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -45,5 +46,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/preview.json
           git diff --staged --quiet || git commit -m "chore: preview snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
-          git pull --rebase origin main
+          git pull --rebase --autostash origin main
           git push
