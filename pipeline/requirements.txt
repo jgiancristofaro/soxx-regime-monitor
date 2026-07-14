@@ -5,4 +5,4 @@ requests==2.32.3
 pytest==8.3.4
 python-dateutil==2.9.0
 pytz==2024.2
-exchange_calendars==4.5.4
+# exchange_calendars omitted: v4.5.4 conflicts with numpy==2.0.2; _is_half_day() falls back to hardcoded list
