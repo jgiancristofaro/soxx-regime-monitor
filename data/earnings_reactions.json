@@ -3,19 +3,27 @@
     "ticker": "NVDA",
     "report_date": "2026-05-20",
     "type": "AMC",
-    "label": "NVDA FQ1 2026 — beat, sold (M2)"
+    "label": "NVDA FQ1 2026 \u2014 beat, sold (M2)",
+    "pop": -0.0177,
+    "retrace_date": "2026-05-22",
+    "vol_flag": false,
+    "grade": "normal"
   },
   {
     "ticker": "AVGO",
     "report_date": "2026-06-03",
     "type": "AMC",
-    "label": "AVGO FQ2 2026 — beat, -14% reaction (M2)"
+    "label": "AVGO FQ2 2026 \u2014 beat, -14% reaction (M2)",
+    "pop": -0.1259,
+    "retrace_date": "2026-06-05",
+    "vol_flag": false,
+    "grade": "normal"
   },
   {
     "ticker": "MU",
     "report_date": "2026-06-24",
     "type": "AMC",
-    "label": "MU FQ3 2026 — EPS $25.11 vs $20.20 est; +15.74% pop, full retrace T+5 (M1)",
+    "label": "MU FQ3 2026 \u2014 EPS $25.11 vs $20.20 est; +15.74% pop, full retrace T+5 (M1)",
     "pop": 0.1574,
     "retrace_date": "2026-07-02",
     "vol_flag": true,

@@ -1,12 +1,12 @@
 {
-  "last_session": "2026-07-13",
+  "last_session": "2026-07-14",
   "data_stale": false,
   "state": {
-    "machine": "MONITOR",
+    "machine": "EXIT",
     "accum_overlay": false,
-    "since": "2026-07-10",
-    "position_multiplier": 0.48,
-    "suggested_size": 0.261,
+    "since": "2026-07-14",
+    "position_multiplier": 0.0,
+    "suggested_size": 0.0,
     "arm_mode_a": true,
     "arm_mode_b": false,
     "short_permission": {
@@ -17,32 +17,32 @@
     }
   },
   "today": {
-    "close": 553.61,
-    "ret": -0.0477,
-    "id20": -0.071,
-    "on20": 0.0323,
-    "ret20": -0.0373,
-    "id20_z": -1.5849,
-    "on20_mom": -0.106,
-    "dd20": -0.1548,
-    "vix_slope": 3.54,
-    "real_chg20": 0.14,
-    "ma20": 598.14,
-    "ma50": 560.14,
-    "ma200": 385.09,
-    "rv10": 0.7034,
-    "rv20": 0.7353,
-    "rv20_p90": 0.5094,
-    "turb": 1.3594,
-    "ar1": -0.1911,
-    "rsi14": 45.7165,
+    "close": 567.92,
+    "ret": 0.0258,
+    "id20": -0.1114,
+    "on20": 0.0836,
+    "ret20": -0.0273,
+    "id20_z": -2.2086,
+    "on20_mom": -0.0451,
+    "dd20": -0.133,
+    "vix_slope": 2.48,
+    "real_chg20": 0.2,
+    "ma20": 596.74,
+    "ma50": 562.28,
+    "ma200": 386.58,
+    "rv10": 0.6783,
+    "rv20": 0.7393,
+    "rv20_p90": 0.6084,
+    "turb": 0.49,
+    "ar1": -0.2529,
+    "rsi14": 48.2942,
     "dist20": 1,
-    "vrp": -0.2753,
+    "vrp": -0.2793,
     "iv30_asof": "2026-07-01",
-    "gap_quality": "none",
-    "asia_on20": -0.0516,
+    "gap_quality": "confirmed",
+    "asia_on20": -0.013,
     "hollow_count20": 0,
-    "id20_pctl120": 0.0333,
+    "id20_pctl120": 0.0167,
     "id20_is_sample_low": false,
     "id20_is_sample_high": false,
     "id20_history_months": 19
@@ -135,8 +135,13 @@
     },
     {
       "start": "2026-07-13",
-      "end": null,
+      "end": "2026-07-13",
       "state": "MONITOR"
+    },
+    {
+      "start": "2026-07-14",
+      "end": null,
+      "state": "EXIT"
     }
   ],
   "trades": [
@@ -163,6 +168,12 @@
       "price": 581.34,
       "action": "REENTER",
       "reason": "disarm"
+    },
+    {
+      "date": "2026-07-14",
+      "price": 567.92,
+      "action": "EXIT",
+      "reason": "exec-into-strength"
     }
   ],
   "history": [
@@ -273,6 +284,12 @@
       "state": "MONITOR",
       "price": 581.34,
       "reason": "disarm"
+    },
+    {
+      "date": "2026-07-14",
+      "state": "EXIT",
+      "price": 567.92,
+      "reason": "\u2014"
     }
   ],
   "series": {
@@ -407,7 +424,8 @@
       "2026-07-08",
       "2026-07-09",
       "2026-07-10",
-      "2026-07-13"
+      "2026-07-13",
+      "2026-07-14"
     ],
     "close": [
       313.35,
@@ -540,7 +558,8 @@
       562.03,
       581.7,
       581.34,
-      553.61
+      553.61,
+      567.92
     ],
     "ma20": [
       303.9,
@@ -673,7 +692,8 @@
       596.8,
       597.79,
       599.8,
-      598.14
+      598.14,
+      596.74
     ],
     "id20": [
       -0.0636,
@@ -806,7 +826,8 @@
       -0.056,
       -0.0295,
       0.0053,
-      -0.071
+      -0.0691,
+      -0.1114
     ],
     "id20_z": [
       -1.2456,
@@ -939,7 +960,8 @@
       -1.3659,
       -0.9248,
       -0.355,
-      -1.5849
+      -1.5548,
+      -2.2086
     ],
     "on20": [
       0.083,
@@ -1072,7 +1094,8 @@
       0.0604,
       0.0847,
       0.0867,
-      0.0323
+      0.0304,
+      0.0836
     ],
     "on20_mom": [
       0.0031,
@@ -1205,7 +1228,8 @@
       -0.0791,
       0.0058,
       0.0236,
-      -0.106
+      -0.1079,
+      -0.0451
     ],
     "rv20": [
       0.3175,
@@ -1338,7 +1362,8 @@
       0.7809,
       0.7876,
       0.7738,
-      0.7353
+      0.7353,
+      0.7393
     ],
     "equity_strategy": [
       null,
@@ -1471,7 +1496,8 @@
       1.721595,
       1.721595,
       1.720734,
-      1.671486
+      1.671486,
+      1.696561
     ],
     "equity_bh": [
       null,
@@ -1604,9 +1630,11 @@
       1.642898,
       1.700396,
       1.699344,
-      1.618285
+      1.618285,
+      1.660115
     ],
     "smh_close": [
+      null,
       null,
       null,
       null,
@@ -1870,7 +1898,8 @@
       0.01,
       -0.0017,
       0.0104,
-      -0.0516
+      -0.0516,
+      -0.013
     ],
     "id20_pctl120": [
       0.0333,
@@ -2003,14 +2032,15 @@
       0.0583,
       0.1167,
       0.25,
-      0.0333
+      0.0333,
+      0.0167
     ]
   },
   "checklist": [
     {
       "id": "id20",
       "label": "Intraday 20d stream",
-      "value": -0.071,
+      "value": -0.1114,
       "fmt": "pct1",
       "status": "red",
       "note": "negative = distribution (institutions selling intraday)"
@@ -2018,7 +2048,7 @@
     {
       "id": "on20",
       "label": "Overnight 20d stream",
-      "value": 0.0323,
+      "value": 0.0836,
       "fmt": "pct1",
       "status": "amber",
       "note": "supporting overnight bid while id20 negative (divergence)"
@@ -2026,15 +2056,15 @@
     {
       "id": "ma",
       "label": "Close vs 20-DMA",
-      "value": -0.0744,
+      "value": -0.0483,
       "fmt": "pct1",
       "status": "red",
-      "note": "re-entry line 598.1"
+      "note": "re-entry line 596.7"
     },
     {
       "id": "rv20",
       "label": "Realized vol (20d)",
-      "value": 0.7353,
+      "value": 0.7393,
       "fmt": "pct0",
       "status": "red",
       "note": "regime normalizes < 50%; sets position size"
@@ -2042,7 +2072,7 @@
     {
       "id": "vrp",
       "label": "IV30 \u2212 RV20",
-      "value": -0.2753,
+      "value": -0.2793,
       "fmt": "pts",
       "status": "amber",
       "note": "puts cheap vs realized \u2014 hedge with options"
@@ -2050,7 +2080,7 @@
     {
       "id": "id20_z",
       "label": "id20 z-score (252d)",
-      "value": -1.5849,
+      "value": -2.2086,
       "fmt": "z",
       "status": "red",
       "note": "z-score below threshold, but 20d trend \u2264 +2% \u2014 Mode B not fully armed"
@@ -2058,15 +2088,15 @@
     {
       "id": "on20_mom",
       "label": "on20 momentum (5d)",
-      "value": -0.106,
+      "value": -0.0451,
       "fmt": "pct1",
-      "status": "red",
-      "note": "sizing tilt active (\u00d70.8) \u2014 overnight bid fading"
+      "status": "amber",
+      "note": "overnight bid weakening"
     },
     {
       "id": "real_chg20",
       "label": "Real yield \u039420d",
-      "value": 0.14,
+      "value": 0.2,
       "fmt": "bp",
       "status": "amber",
       "note": "rising real yields \u2014 headwind for growth/tech"
@@ -2138,6 +2168,6 @@
       "pop": 0.1574
     }
   ],
-  "generated_utc": "2026-07-13T22:18:52Z",
+  "generated_utc": "2026-07-14T22:31:50Z",
   "is_live_candle": false
 }
