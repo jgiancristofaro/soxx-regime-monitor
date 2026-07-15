@@ -55,6 +55,18 @@
     dd { margin: 0.2rem 0 0 1.25rem; color: #d1d5db; font-size: 0.9rem; }
     dd + dd { margin-top: 0.1rem; }
     .tag { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.1em 0.45em; border-radius: 4px; background: #1f2937; color: #9ca3af; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }
+    .exec-summary { background: #0d1f2d; border: 1px solid #1e3a5f; border-radius: 10px; padding: 1.5rem 1.75rem; margin: 1.75rem 0 2rem; }
+    .exec-summary h2 { color: #7dd3fc; margin-top: 0; font-size: 1.1rem; }
+    .exec-summary h3 { color: #94a3b8; font-size: 0.85rem; margin: 1.25rem 0 0.4rem; }
+    .exec-summary p { font-size: 0.93rem; }
+    .exec-summary ul, .exec-summary ol { font-size: 0.93rem; }
+    .exec-summary table { font-size: 0.85rem; margin: 0.5rem 0; }
+    .exec-summary td, .exec-summary th { padding: 0.4rem 0.6rem; }
+    .exec-summary .state-on  { color: #22c55e; font-weight: 700; }
+    .exec-summary .state-mon { color: #f59e0b; font-weight: 700; }
+    .exec-summary .state-exit{ color: #ef4444; font-weight: 700; }
+    .exec-summary .state-acc { color: #3b82f6; font-weight: 700; }
+    .exec-summary .caveat-box { background: #1a1508; border-left: 3px solid #b45309; border-radius: 0 6px 6px 0; padding: 0.6rem 0.9rem; margin-top: 1rem; font-size: 0.85rem; color: #fcd34d; }
   </style>
 </head>
 <body>
@@ -64,6 +76,57 @@
 
 <h1>SOXX Regime Monitor — Methodology</h1>
 <p>This page documents the signal construction, state machine rules, and backtest assumptions underlying the dashboard.</p>
+
+<div class="exec-summary">
+<h2>Executive Summary — What This Is, in Plain English</h2>
+
+<p>SOXX is an ETF that holds the largest US-listed semiconductor stocks (Nvidia, TSMC, Broadcom, etc.). This dashboard monitors a single question every trading day: <strong>are the big US institutional investors quietly selling while the price still looks fine?</strong> If yes, it gets ready to exit — but waits for a strong day to do it, so it's not selling into a crash.</p>
+
+<h3>The Core Idea</h3>
+<p>Every trading day, SOXX's total move can be split into two pieces:</p>
+<ul>
+  <li><strong>Overnight move</strong> — what happened from yesterday's close to today's open, while the US market was shut. This is mostly driven by Taiwan and Korean chip companies trading in Asian hours. It tends to be structurally positive because Asia's semiconductor markets have a lot of activity while the US sleeps.</li>
+  <li><strong>Intraday move</strong> — what happened from today's open to today's close, during the US trading session. This is mostly driven by large US institutional investors (hedge funds, pension funds, asset managers).</li>
+</ul>
+<p>The key signal — called <strong><code>id20</code></strong> — is the rolling 20-day sum of those intraday moves. When <code>id20</code> is positive, US institutions have been net buyers over the past month. When it turns negative — even if the stock price is still rising thanks to overnight gaps from Asia — it means <strong>US institutions are distributing: selling into a bid that's coming from overseas</strong>. That divergence tends to precede drawdowns.</p>
+
+<h3>The Four States</h3>
+<table>
+  <tr><th>State</th><th>Color</th><th>Plain-English meaning</th><th>Position</th></tr>
+  <tr><td><span class="state-on">RISK_ON</span></td><td>Green</td><td>No warning signs. Institutions are net buyers. Ride the trend.</td><td>Fully invested</td></tr>
+  <tr><td><span class="state-mon">MONITOR</span></td><td>Amber</td><td>Distribution detected — US institutions are net sellers intraday. On alert for an exit opportunity.</td><td>Half-size; ready to exit</td></tr>
+  <tr><td><span class="state-exit">EXIT</span></td><td>Red</td><td>Sold out. Flat or in cash. Waiting for re-entry conditions.</td><td>Zero (cash)</td></tr>
+  <tr><td><span class="state-acc">ACCUM</span></td><td>Blue</td><td>Price is falling but institutions are <em>buying</em> the dip intraday. Don't panic — this often precedes a recovery.</td><td>Fully invested</td></tr>
+</table>
+
+<h3>The Key Execution Rule</h3>
+<p>Once in MONITOR, the system <strong>does not sell into a down day or a panic close</strong>. It waits for a day when the stock rallies (+1% intraday or +1.5% for the full day) and sells into that strength — while buyers are still active and prices are still elevated. This "exec-into-strength" rule is what made the Jun 18, 2026 exit work: the system exited at <strong>$639.45</strong>, four days before the all-time high of $655, and sat flat through the entire subsequent June–July slide.</p>
+<p>If no strength day comes within 3 sessions and price has dropped below its 20-day average, the system exits anyway as a safety valve — it won't hold forever waiting for a rally that never comes.</p>
+
+<h3>Re-entry</h3>
+<p>Getting back in is also rules-based, not discretionary. The system re-enters when one of these happens:</p>
+<ol>
+  <li><strong>Disarm:</strong> the distribution signal reverses — <code>id20</code> turns back positive and institutions are net buyers again. Re-enter immediately, at that close. (V-bounces front-load their gains; waiting costs more than it saves.)</li>
+  <li><strong>Accumulation flip:</strong> price is falling but institutions start buying intraday — the ACCUM pattern. Re-enter; ride the institutional bid.</li>
+  <li><strong>MA20 recovery:</strong> price climbs back above its 20-day moving average for 2 consecutive sessions while <code>id20</code> is positive. The trend has genuinely reclaimed.</li>
+</ol>
+
+<h3>2026 Track Record (3 trades)</h3>
+<ol>
+  <li><strong>Feb 5:</strong> Exited at $330.83 → re-entered Feb 6 at ~$348 (brief false alarm; arm condition cleared the very next day, triggering immediate re-entry)</li>
+  <li><strong>Jun 18:</strong> Exited at $639.45 → currently flat in cash as of this writing</li>
+</ol>
+<p>Net result: captured essentially the full Jan–Jun semiconductor melt-up, then sidestepped the June–July slide. The Feb episode was a 2-day whipsaw with small slippage cost. Three total trades in six months.</p>
+
+<h3>What This System Does Not Do</h3>
+<div class="caveat-box">
+  <strong>No crash protection.</strong> The June 5, 2026 −10.4% crash day arrived with zero warning while the system was fully invested and showing its most bullish reading. This system detects <em>distribution processes</em> (slow, multi-week institutional selling) — not overnight shocks or gap-down events. Do not rely on it for crash protection.<br><br>
+  <strong>In-sample only.</strong> Every threshold was set using the same six months of data the system is being evaluated on. There have been only 3 confirming episodes. Multi-year validation has not been done. The results are a protocol validation, not a performance forecast.<br><br>
+  <strong>Research and education only. Not investment advice.</strong> This is a personal research tool. Use judgment at every step.
+</div>
+
+<p style="margin-top:1rem;font-size:0.85rem;color:#6b7280;">The sections below document the full technical detail: exact formulas, all signal definitions, state machine constants, failure modes, pressure test results, and the complete 2026 backtest breakdown.</p>
+</div>
 
 <h2>0. The System in Ten Lines</h2>
 <ol>
