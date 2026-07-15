@@ -1,24 +1,19 @@
 {
-  "date": "2026-07-14",
-  "snapshot_et": "15:52",
-  "late": true,
+  "date": "2026-07-15",
+  "snapshot_et": "15:38",
+  "late": false,
   "skipped": null,
-  "spot": 570.15,
-  "provisional_ret": 0.0299,
-  "provisional_id": -0.0176,
+  "spot": 553.45,
+  "provisional_ret": -0.0255,
+  "provisional_id": -0.0389,
   "projected_state": "EXIT",
-  "current_settled_state": "MONITOR",
-  "projected_action": "EXIT",
-  "action_class": "CLEAR",
+  "current_settled_state": "EXIT",
+  "projected_action": "NONE",
+  "action_class": "NONE",
   "moc_eligible": false,
-  "margins": {
-    "trigger": "ret_t",
-    "value": 0.0299,
-    "threshold": 0.015,
-    "buffer": 0.0149
-  },
+  "margins": null,
   "volume_unreliable": true,
-  "note": "ret_t margin 0.015 (\u2265 buffer 0.005) [LATE \u2014 MOC window closed]",
+  "note": "No projected transition",
   "settled": true,
-  "settled_action": "EXIT"
+  "settled_action": "NONE"
 }
