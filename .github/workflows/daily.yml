@@ -2,8 +2,11 @@ name: Daily Data Update
 
 on:
   schedule:
-    # 22:15 UTC weekdays (markets close ~21:00 UTC)
-    - cron: '15 22 * * 1-5'
+    # EDT (UTC-4): fires ~90min before the 21:30 UTC (17:30 ET) sleep target,
+    # to absorb GitHub Actions cron jitter (observed 60-70min delays on this repo).
+    - cron: '0 20 * * 1-5'
+    # EST (UTC-5): fires ~90min before the 22:30 UTC (17:30 ET) sleep target.
+    - cron: '0 21 * * 1-5'
   workflow_dispatch:  # allow manual run
 
 permissions:
@@ -25,6 +28,16 @@ jobs:
 
       - name: Install pipeline dependencies
         run: pip install -r pipeline/requirements.txt
+
+      - name: Sleep until 17:30 ET
+        run: |
+          TARGET=$(TZ=America/New_York date -d 'today 17:30:00' +%s)
+          NOW=$(date +%s)
+          SLEEP=$((TARGET - NOW))
+          if [ "$SLEEP" -gt 0 ]; then
+            echo "Sleeping ${SLEEP}s until 17:30 ET..."
+            sleep "$SLEEP"
+          fi
 
       - name: Run pipeline
         run: python pipeline/compute.py
