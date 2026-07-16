@@ -1,11 +1,11 @@
 {
-  "date": "2026-07-15",
-  "snapshot_et": "15:38",
+  "date": "2026-07-16",
+  "snapshot_et": "15:37",
   "late": false,
   "skipped": null,
-  "spot": 553.45,
-  "provisional_ret": -0.0255,
-  "provisional_id": -0.0389,
+  "spot": 526.29,
+  "provisional_ret": -0.0522,
+  "provisional_id": -0.0239,
   "projected_state": "EXIT",
   "current_settled_state": "EXIT",
   "projected_action": "NONE",
@@ -13,7 +13,5 @@
   "moc_eligible": false,
   "margins": null,
   "volume_unreliable": true,
-  "note": "No projected transition",
-  "settled": true,
-  "settled_action": "NONE"
+  "note": "No projected transition"
 }
