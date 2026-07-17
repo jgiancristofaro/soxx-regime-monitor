@@ -13,5 +13,7 @@
   "moc_eligible": false,
   "margins": null,
   "volume_unreliable": true,
-  "note": "No projected transition"
+  "note": "No projected transition",
+  "settled": true,
+  "settled_action": "NONE"
 }
