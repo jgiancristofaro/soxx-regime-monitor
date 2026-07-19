@@ -28,6 +28,7 @@
 | [017](#017) | 2026-07-11 | Change Order v3.7: canonical disarm-2 re-entry, consistency validator, Z1-Z6 tests |
 | [018](#018) | 2026-07-12 | Erratum v3.7.1: reject disarm-2, restore 1-session disarm; update Z1-Z4, golden record |
 | [019](#019) | 2026-07-13 | Change Order v3.8: Preview Run & Execution Protocol |
+| [020](#020) | 2026-07-19 | Health check: all green, added missing typecheck script, flagged stale manual.json |
 
 ---
 
@@ -511,5 +512,20 @@ The on20 checklist card note is now selected from 4 value-dependent templates ba
 - P5: volume_unreliable=True always
 - P6: half-day → skipped="half-day"
 - P7: settled golden record byte-identical (signals.json unchanged by _settle_supersedes_preview)
+
+---
+
+<a name="020"></a>
+## [020] 2026-07-19 — Health check: all green, added missing typecheck script, flagged stale manual.json
+
+Routine health check requested by owner. Findings:
+
+- **Data pipeline:** `data/signals.json` / `data/history.csv` current through 2026-07-17 (last trading session — Jul 18/19 is Sat/Sun, so no new session is expected). Not stale.
+- **GitHub Actions:** `daily.yml`, `deploy.yml`, `ci.yml` all green on recent runs. Two historical failures found in the run history, both already self-resolved and non-recurring: a `git pull --rebase` race in `daily.yml` on 2026-07-14 (manually re-run successfully 3 min later), and a `numpy`/`exchange_calendars` resolver conflict in `ci.yml` on 2026-07-13 (fixed by omitting `exchange_calendars` from `requirements.txt`, per the comment already in that file).
+- **Deploy:** confirmed `deploy.yml` ran immediately after the last `daily.yml` commit (Jul 17), so the live site is serving current data. `site/public/data/signals.json` byte-identical to `data/signals.json`.
+- **Tests:** `python -m pytest pipeline/tests/ -v` → 75 passed, 14 skipped (skips are intentional/documented test vectors, e.g. W1-W6, X1-X2, Y1-Y4, Z1). Golden record intact.
+- **Frontend:** `npm run build` and a manual `tsc --noEmit` both clean.
+- **Fixed:** `site/package.json` was missing the `typecheck` script that CLAUDE.md documents under Key Commands (`npm run typecheck`) — added `"typecheck": "tsc --noEmit"` so the documented command actually works. CI already ran `npx tsc --noEmit` directly so this didn't affect CI, only local dev convenience.
+- **Flagged, not fixed:** `data/manual.json` is stale — `iv30_asof` is 2026-07-01 (18 days old) and `pc_oi_asof` is 2026-06-18 (31 days old), both past the weekly cadence CLAUDE.md calls for. This is owner-edited real market data (IV30, put/call OI) that an AI agent should not fabricate; flagged for the owner to update in the GitHub web UI per the existing "Data Files — What to Edit Manually" section.
 
 ---
