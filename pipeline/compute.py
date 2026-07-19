@@ -369,6 +369,23 @@ def main():
     events = load_events()
 
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    print("Fetching options metrics (IV30, P/C OI)...")
+    try:
+        from pipeline.options import fetch_options_metrics
+        spot = float(df["close"].iloc[-1])
+        auto = fetch_options_metrics("SOXX", spot=spot)
+        manual = {
+            **manual,
+            "iv30": auto["iv30"],
+            "iv30_asof": today_str,
+            "pc_oi": auto["pc_oi"],
+            "pc_oi_asof": today_str,
+        }
+        print(f"  iv30={auto['iv30']:.4f} pc_oi={auto['pc_oi']:.4f} (auto, expiries={auto['iv30_expiries']})")
+    except Exception as e:
+        print(f"  Options fetch failed, falling back to data/manual.json: {e}")
+
     _append_options_history(manual, today_str)
 
     # Grade earnings reactions (continue-on-error — writes back to earnings_reactions.json)
