@@ -30,6 +30,7 @@
 | [019](#019) | 2026-07-13 | Change Order v3.8: Preview Run & Execution Protocol |
 | [020](#020) | 2026-07-19 | Health check: all green, added missing typecheck script, flagged stale manual.json |
 | [021](#021) | 2026-07-19 | Automate IV30 and P/C OI from live options chain (manual.json becomes fallback) |
+| [022](#022) | 2026-07-21 | Silence expected preview.yml abort failures (redundant DST-buffer cron) |
 
 ---
 
@@ -562,5 +563,20 @@ Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffect
 **Methodology archive:** per the CLAUDE.md archive-before-editing workflow, `site/public/methodology.html` was copied to `methodology-archive/2026-07-19.html` (with archive banner) and a row prepended to `methodology-archive/index.html` *before* editing the live page. Live page updated (§2 `iv30`/`pc_oi`/`iv30_asof` definitions, §7 Data Sources, and a new caveat note under §8 about the ATM approximation and Yahoo quote-quality risk). No signal logic, constants, or state machine sections touched.
 
 **`CLAUDE.md` updated:** "Data Files — What to Edit Manually" and the Operating Manual's weekly-IV/PC entry now describe the automation + fallback, instead of a weekly manual-edit chore.
+
+---
+
+<a name="022"></a>
+## [022] 2026-07-21 — Silence expected preview.yml abort failures (redundant DST-buffer cron)
+
+**Origin:** Owner got a failure notification for "Preview Run" at 4:30pm ET on 2026-07-21 despite the dashboard's preview banner showing correct, current data. Investigated the run history directly (`preview.yml`, GitHub Actions) and confirmed the pattern on 2026-07-17, 07-20, and 07-21: one run succeeds, one run fails, every single weekday.
+
+**Root cause:** `preview.yml` registers two cron triggers — `'0 18 * * 1-5'` and `'0 19 * * 1-5'` — one tuned for EDT and one for EST, each meant to give ~98 minutes of buffer before the 15:38 ET sleep target. GitHub Actions cron is pure UTC and does not shift for daylight saving, so **both fire every weekday regardless of season**. Whichever cron isn't tuned for the currently-active DST season only gets ~38 minutes of buffer instead of ~98; combined with this repo's observed 60–90 minute GitHub Actions scheduling jitter (already noted in a comment in the file), that thin margin routinely gets blown, and the job starts after `pipeline/preview.py`'s hard `ABORT_CUTOFF = 15:59 ET`. `preview.py` prints `"Preview aborted: past 15:59 ET"` to stderr and exits 1 — correct, deliberate behavior (it must not write a stale/after-hours "preview"), not a bug. Confirmed via source read that `ABORT_CUTOFF` is the *only* `sys.exit(1)` path in `preview.py`; every other failure mode (half-day, intraday fetch failure, state-machine projection error) is already caught internally and written to `data/preview.json` as a normal (`skipped`/`note`) result with exit 0.
+
+**Fix (owner chose option 2 — keep both crons, silence the redundant one's expected failure; did not touch the cron schedule itself or `pipeline/preview.py`):** in `.github/workflows/preview.yml`, the "Run preview pipeline" step now captures `pipeline/preview.py`'s combined stdout+stderr and exit code instead of letting the step fail directly. If the exit code is non-zero **and** the output matches `^Preview aborted: past` (the exact, sole abort message), the step logs a note and exits 0 (`aborted=true` output) — this is the expected redundant-cron no-op case, not an alert-worthy failure. Any other non-zero exit (a real bug — network failure, traceback, etc.) is not matched by that grep and still exits non-zero, so the job still fails loudly as before. The subsequent "Commit preview snapshot" and "Trigger deploy" steps are now gated on `steps.preview.outputs.aborted != 'true'`, so the newly-successful abort case doesn't spuriously commit (would have been a no-op anyway via the existing `git diff --staged --quiet` guard) or fire a redundant `deploy.yml` dispatch.
+
+**Verification:** simulated all three exit paths (real success, expected abort, genuine failure) against the exact bash logic added to the workflow — confirmed `aborted=false`/exit 0 for success, `aborted=true`/exit 0 for the abort case, `aborted=false`/exit 1 for a simulated genuine failure (traceback). `pipeline/preview.py` itself was not modified; full pipeline test suite re-run afterward (85 passed, 14 skipped) to confirm no regression, though this change only touches workflow YAML.
+
+**Not done (left for the owner to decide later if the noise persists in a way they don't like):** did not collapse the two crons into one DST-aware schedule (option 1) or change `ABORT_CUTOFF`/the sleep-target logic in `preview.py` itself. The redundant cron will keep firing and aborting-silently every weekday until the DST season flips or someone revisits the schedule.
 
 ---

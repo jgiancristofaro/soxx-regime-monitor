@@ -39,9 +39,28 @@ jobs:
           fi
 
       - name: Run preview pipeline
-        run: python pipeline/preview.py
+        id: preview
+        run: |
+          set +e
+          OUTPUT=$(python pipeline/preview.py 2>&1)
+          STATUS=$?
+          echo "$OUTPUT"
+          # The two cron triggers above always both fire every weekday (GitHub cron
+          # doesn't shift for DST), so whichever one isn't tuned for the current
+          # season regularly starts late enough to land past preview.py's hard
+          # ABORT_CUTOFF (15:59 ET). That abort is intentional/safe — no file is
+          # written — so treat it as a no-op instead of a failure. Any other
+          # non-zero exit (a real bug) still fails the job normally.
+          if [ "$STATUS" -ne 0 ] && echo "$OUTPUT" | grep -q "^Preview aborted: past"; then
+            echo "Redundant DST-buffer cron fired after the abort cutoff — expected no-op, not a failure."
+            echo "aborted=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "aborted=false" >> "$GITHUB_OUTPUT"
+          exit "$STATUS"
 
       - name: Commit preview snapshot
+        if: steps.preview.outputs.aborted != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -51,6 +70,7 @@ jobs:
           git push
 
       - name: Trigger deploy
+        if: steps.preview.outputs.aborted != 'true'
         uses: actions/github-script@v7
         with:
           script: |
