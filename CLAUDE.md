@@ -205,7 +205,7 @@ WEAK_BOUNCE_EXIT = False   # MA20 qualifier: genuine reclaim → disarm, failed 
 
 ## Data Files — What to Edit Manually
 
-- **`data/manual.json`** — Update IV30 and P/C OI weekly (edit in GitHub web UI, site redeploys):
+- **`data/manual.json`** — IV30 and P/C OI are computed automatically every trading day by `pipeline/options.py` from the live SOXX options chain (yfinance, free — see `site/public/methodology.html` §2 for the interpolation method). `manual.json` is now a **fallback only**: if the automated fetch fails (network outage, no usable option quotes), `compute.py` keeps whatever is already in this file. Edit it by hand (in the GitHub web UI, site redeploys) only to force an override or bridge a fetch outage:
   ```json
   { "iv30": 0.46, "iv30_asof": "2026-07-01", "pc_oi": 2.9, "pc_oi_asof": "2026-06-18" }
   ```
@@ -271,7 +271,7 @@ The archive is browsable via the "Methodology Archive →" link at the bottom of
 
 **Pipeline failed (red X on Actions):** Re-run the job from the Actions tab. The site will show a stale-data banner but won't crash.
 
-**Update IV/P-C (weekly):** Edit `data/manual.json` in the GitHub web UI. Site redeploys automatically.
+**IV/P-C stale despite automation:** Check the `daily.yml` run log for "Options fetch failed" — if the live options-chain fetch keeps failing, edit `data/manual.json` in the GitHub web UI as a manual override. Site redeploys automatically.
 
 **Add a chart annotation:** Append to `data/events.json`, commit — site redeploys.
 

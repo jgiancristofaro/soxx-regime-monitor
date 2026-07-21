@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Methodology — SOXX Regime Monitor</title>
+  <title>[Archived 2026-07-19] Methodology — SOXX Regime Monitor</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -67,12 +67,20 @@
     .exec-summary .state-exit{ color: #ef4444; font-weight: 700; }
     .exec-summary .state-acc { color: #3b82f6; font-weight: 700; }
     .exec-summary .caveat-box { background: #1a1508; border-left: 3px solid #b45309; border-radius: 0 6px 6px 0; padding: 0.6rem 0.9rem; margin-top: 1rem; font-size: 0.85rem; color: #fcd34d; }
+    .archive-banner { background: #1a1508; border: 1px solid #78350f; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 2rem; font-size: 0.88rem; color: #fbbf24; }
+    .archive-banner a { color: #38bdf8; }
   </style>
 </head>
 <body>
 <div class="content">
 
-<nav><a href="./">← Back to Dashboard</a></nav>
+<div class="archive-banner">
+  <strong>⊘ Archived version — 2026-07-19</strong><br>
+  This snapshot was captured on July 19, 2026 before automating IV30 and P/C OI: both were entered weekly from manual options-market lookups. The live page now describes the automated ATM/variance-interpolation computation from the SOXX options chain (yfinance), with manual.json retained only as a fallback.
+  <br><a href="../methodology.html">View current methodology →</a> &nbsp;·&nbsp; <a href="./">View all archived versions →</a>
+</div>
+
+<nav><a href="../">← Back to Dashboard</a></nav>
 
 <h1>SOXX Regime Monitor — Methodology</h1>
 <p>This page documents the signal construction, state machine rules, and backtest assumptions underlying the dashboard.</p>
@@ -194,7 +202,7 @@
   <dd>Same as rv20 but over 10 sessions — a shorter-term volatility gauge, more sensitive to recent spikes.</dd>
 
   <dt><code>iv30</code> <span class="tag">30-day implied volatility</span></dt>
-  <dd>The market's expectation of volatility over the next 30 days, derived from options prices. Computed daily from the live SOXX options chain: ATM implied vol (average of call/put IV at the strike nearest spot) at the two expiries bracketing 30 calendar days out, interpolated on total variance and annualized back to 30 days — the same linear-in-variance convention CBOE uses for VIX, applied here as an ATM approximation rather than a full variance-swap strip. Falls back to the last value in <code>data/manual.json</code> if the live fetch fails.</dd>
+  <dd>The market's expectation of volatility over the next 30 days, derived from options prices. Entered manually from options market data.</dd>
 
   <dt><code>vrp</code> <span class="tag">variance risk premium</span></dt>
   <dd>Implied vol minus realized vol: <code>iv30 − rv20</code>.</dd>
@@ -264,11 +272,11 @@
   <dd>A score above 3 means today's move is more than 3 standard deviations from recent average — a tail event. The Jun 5, 2026 crash (−10.4%) scored ~3.7.</dd>
 
   <dt><code>pc_oi</code> <span class="tag">put/call open interest ratio</span></dt>
-  <dd>The total open interest of put options divided by call options on SOXX. Computed daily by summing open interest across every SOXX options expiry out to 400 calendar days (longer-dated LEAPS carry negligible OI for this name). Falls back to the last value in <code>data/manual.json</code> if the live fetch fails.</dd>
+  <dd>The total open interest of put options divided by call options on SOXX (entered manually from options market data).</dd>
   <dd>High ratio = more puts outstanding than calls = bearish hedging in the market. Useful as a sentiment cross-check; not a direct state machine input.</dd>
 
   <dt><code>iv30_asof</code></dt>
-  <dd>The date the IV30 reading was last computed (or, if the automated fetch failed that day, the date of the last manual fallback value). Shown to flag when the options data may be stale.</dd>
+  <dd>The date the IV30 reading was last manually updated. Shown to flag when the options data may be stale.</dd>
 </dl>
 
 <h2>3. Key Signals</h2>
@@ -380,7 +388,7 @@
 <h2>7. Data Sources</h2>
 <p><strong>OHLCV (price data):</strong> yfinance → stooq → stockanalysis (fallback chain). Updated daily via GitHub Actions at 22:15 UTC on weekdays. If all sources fail, the last committed snapshot is used and a stale-data banner appears.</p>
 <p><strong>Volatility / sentiment (FRED, no API key required):</strong> VIXCLS (VIX spot), VXVCLS (VIX 3-month), DGS10 (10-year nominal yield), T10YIE (10-year breakeven inflation). These are fetched via the FRED graph CSV API. If FRED is unavailable, <code>vix_slope</code> and <code>real_chg20</code> show as n/a — they are context-only and do not affect state transitions.</p>
-<p><strong>Options data (automated with manual fallback):</strong> IV30 and P/C OI are computed daily from the live SOXX options chain via yfinance (<code>pipeline/options.py</code>) — see §2 for the interpolation method. If the live fetch fails (network outage, no usable quotes), the pipeline falls back to whatever is currently in <code>data/manual.json</code>, which the owner can still edit by hand to force an override. A staleness date is shown on the dashboard.</p>
+<p><strong>Options data (manual):</strong> IV30 and P/C OI are entered weekly in <code>data/manual.json</code>. A staleness date is shown on the dashboard.</p>
 
 <h2>8. Known Failure Modes (Verified)</h2>
 
@@ -404,7 +412,6 @@
   <li>The escape valve (exit after N sessions armed with no strength day) has never fired in live or backtest data — treat its first activation with suspicion.</li>
   <li>All thresholds are in-sample choices calibrated on n=3 confirming episodes (Jan–Jul 2026). The hybrid rule is itself a third in-sample iteration. Multi-year (2019–2025) calibration is pending.</li>
   <li><strong>VRP note:</strong> <code>vrp = iv30 − rv20</code> is a vol-points (practitioner) convention, not variance units. Used only as a hedge-instrument selector, never as a harvesting signal. When hedging with puts: roll at 21–30 DTE, cap annual hedge budget (≤2% of NAV per quarter), and treat 30-day IV as potentially decoupled from short-dated tail pricing in the 0DTE era.</li>
-  <li><strong>IV30/P-C OI automation note:</strong> the ATM-only interpolation is an approximation, not a true variance-swap strip — it can diverge from a full-smile VIX-style number during heavy skew. Yahoo's per-contract implied vol and open interest can be stale or zero on illiquid strikes; the fetch skips zero quotes but a temporarily thin chain could still bias a single day's reading. Both fields are display/checklist-only and never feed a state transition.</li>
 </ul>
 
 <div class="note">

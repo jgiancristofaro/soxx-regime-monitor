@@ -28,6 +28,9 @@
 | [017](#017) | 2026-07-11 | Change Order v3.7: canonical disarm-2 re-entry, consistency validator, Z1-Z6 tests |
 | [018](#018) | 2026-07-12 | Erratum v3.7.1: reject disarm-2, restore 1-session disarm; update Z1-Z4, golden record |
 | [019](#019) | 2026-07-13 | Change Order v3.8: Preview Run & Execution Protocol |
+| [020](#020) | 2026-07-19 | Health check: all green, added missing typecheck script, flagged stale manual.json |
+| [021](#021) | 2026-07-19 | Automate IV30 and P/C OI from live options chain (manual.json becomes fallback) |
+| [022](#022) | 2026-07-21 | Silence expected preview.yml abort failures (redundant DST-buffer cron) |
 
 ---
 
@@ -511,5 +514,69 @@ The on20 checklist card note is now selected from 4 value-dependent templates ba
 - P5: volume_unreliable=True always
 - P6: half-day → skipped="half-day"
 - P7: settled golden record byte-identical (signals.json unchanged by _settle_supersedes_preview)
+
+---
+
+<a name="020"></a>
+## [020] 2026-07-19 — Health check: all green, added missing typecheck script, flagged stale manual.json
+
+Routine health check requested by owner. Findings:
+
+- **Data pipeline:** `data/signals.json` / `data/history.csv` current through 2026-07-17 (last trading session — Jul 18/19 is Sat/Sun, so no new session is expected). Not stale.
+- **GitHub Actions:** `daily.yml`, `deploy.yml`, `ci.yml` all green on recent runs. Two historical failures found in the run history, both already self-resolved and non-recurring: a `git pull --rebase` race in `daily.yml` on 2026-07-14 (manually re-run successfully 3 min later), and a `numpy`/`exchange_calendars` resolver conflict in `ci.yml` on 2026-07-13 (fixed by omitting `exchange_calendars` from `requirements.txt`, per the comment already in that file).
+- **Deploy:** confirmed `deploy.yml` ran immediately after the last `daily.yml` commit (Jul 17), so the live site is serving current data. `site/public/data/signals.json` byte-identical to `data/signals.json`.
+- **Tests:** `python -m pytest pipeline/tests/ -v` → 75 passed, 14 skipped (skips are intentional/documented test vectors, e.g. W1-W6, X1-X2, Y1-Y4, Z1). Golden record intact.
+- **Frontend:** `npm run build` and a manual `tsc --noEmit` both clean.
+- **Fixed:** `site/package.json` was missing the `typecheck` script that CLAUDE.md documents under Key Commands (`npm run typecheck`) — added `"typecheck": "tsc --noEmit"` so the documented command actually works. CI already ran `npx tsc --noEmit` directly so this didn't affect CI, only local dev convenience.
+- **Flagged, not fixed:** `data/manual.json` is stale — `iv30_asof` is 2026-07-01 (18 days old) and `pc_oi_asof` is 2026-06-18 (31 days old), both past the weekly cadence CLAUDE.md calls for. This is owner-edited real market data (IV30, put/call OI) that an AI agent should not fabricate; flagged for the owner to update in the GitHub web UI per the existing "Data Files — What to Edit Manually" section.
+
+---
+
+<a name="021"></a>
+## [021] 2026-07-19 — Automate IV30 and P/C OI from live options chain (manual.json becomes fallback)
+
+**Origin:** Follow-up to [020]'s staleness flag. Owner asked whether IV30/P-C OI could be automated instead of manually re-entered weekly, then asked to build it.
+
+**Why this is safe to automate:** neither field feeds a state transition. `pc_oi` isn't referenced in `state_machine.py` at all; `iv30` only flows into `vrp = iv30 − rv20`, which the methodology documents as a hedge-instrument selector, display/checklist-only. Zero change to ARM/EXIT/ACCUM logic, trade dates, bands, or the golden record.
+
+**New module `pipeline/options.py`:** `fetch_options_metrics(ticker, spot, today, expiries=None, chain_fn=None)` — free, no API key, via `yfinance` (already a pipeline dependency).
+- **IV30:** ATM implied vol (average of call/put IV at the strike nearest spot, skipping zero/NaN quotes) at the two expiries bracketing 30 calendar days out, interpolated on total variance (`iv^2 * T`, linear-in-variance — the CBOE/VIX convention) then annualized back to 30 days. Falls back to the single nearest expiry (no interpolation) if only one side of the 30-day bracket has data.
+- **P/C OI:** total put open interest ÷ total call open interest, summed across every expiry out to 400 calendar days (longer LEAPS excluded — negligible OI for this name, and unbounded aggregation risked slow/flaky fetches).
+- `expiries`/`chain_fn` are injectable so tests never hit the network.
+
+**`pipeline/compute.py` change:** after `load_manual()`, attempts `fetch_options_metrics("SOXX", spot=<latest close>)`. On success, overwrites `manual["iv30"/"iv30_asof"/"pc_oi"/"pc_oi_asof"]` with the computed values and today's date *before* `_append_options_history()` runs, so the history log automatically captures the auto values — no changes needed to that function. On any exception (network, thin chain, no quotes), prints the error and silently falls back to whatever was already in `data/manual.json`, matching the pre-existing behavior exactly.
+
+**`data/manual.json` semantics change:** was the primary source; is now a fallback/override only. The owner can still hand-edit it (GitHub web UI) to force a value or bridge an outage — `compute.py` only overwrites it in memory for `signals.json`, never writes back to the file itself.
+
+**Tests (`pipeline/tests/test_options.py`, O1–O7, no network):**
+- O1: variance-interpolation formula between two bracketing expiries, hand-checked
+- O2: exact-30-day expiry short-circuits interpolation
+- O3/O4: only near-dated / only far-dated expiries available → falls back to nearest single expiry
+- O5: zero-IV strike is skipped; equidistant-strike ties are grouped by exact distance and averaged (fixed a non-determinism bug caught by this test — `set` iteration order can't be relied on for tie-breaking)
+- O6: P/C OI aggregates across all provided expiries and excludes a >400-day LEAPS expiry
+- O7: error paths (no expiries, no future expiries, no call OI, missing spot) raise so `compute.py`'s try/except can fall back cleanly
+
+Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffected, as expected.
+
+**Verification limits:** this sandbox's network policy blocks `finance.yahoo.com` outright (confirmed a plain `yfinance.download()` OHLCV call fails identically), so the live fetch path could only be verified via injected fixtures, not a real Yahoo round-trip. `daily.yml`'s GitHub Actions runner already fetches live yfinance OHLCV successfully every weekday with unrestricted egress, so the same client/session will reach the options-chain endpoint the same way — but the first live run after this ships is the real-world check.
+
+**Methodology archive:** per the CLAUDE.md archive-before-editing workflow, `site/public/methodology.html` was copied to `methodology-archive/2026-07-19.html` (with archive banner) and a row prepended to `methodology-archive/index.html` *before* editing the live page. Live page updated (§2 `iv30`/`pc_oi`/`iv30_asof` definitions, §7 Data Sources, and a new caveat note under §8 about the ATM approximation and Yahoo quote-quality risk). No signal logic, constants, or state machine sections touched.
+
+**`CLAUDE.md` updated:** "Data Files — What to Edit Manually" and the Operating Manual's weekly-IV/PC entry now describe the automation + fallback, instead of a weekly manual-edit chore.
+
+---
+
+<a name="022"></a>
+## [022] 2026-07-21 — Silence expected preview.yml abort failures (redundant DST-buffer cron)
+
+**Origin:** Owner got a failure notification for "Preview Run" at 4:30pm ET on 2026-07-21 despite the dashboard's preview banner showing correct, current data. Investigated the run history directly (`preview.yml`, GitHub Actions) and confirmed the pattern on 2026-07-17, 07-20, and 07-21: one run succeeds, one run fails, every single weekday.
+
+**Root cause:** `preview.yml` registers two cron triggers — `'0 18 * * 1-5'` and `'0 19 * * 1-5'` — one tuned for EDT and one for EST, each meant to give ~98 minutes of buffer before the 15:38 ET sleep target. GitHub Actions cron is pure UTC and does not shift for daylight saving, so **both fire every weekday regardless of season**. Whichever cron isn't tuned for the currently-active DST season only gets ~38 minutes of buffer instead of ~98; combined with this repo's observed 60–90 minute GitHub Actions scheduling jitter (already noted in a comment in the file), that thin margin routinely gets blown, and the job starts after `pipeline/preview.py`'s hard `ABORT_CUTOFF = 15:59 ET`. `preview.py` prints `"Preview aborted: past 15:59 ET"` to stderr and exits 1 — correct, deliberate behavior (it must not write a stale/after-hours "preview"), not a bug. Confirmed via source read that `ABORT_CUTOFF` is the *only* `sys.exit(1)` path in `preview.py`; every other failure mode (half-day, intraday fetch failure, state-machine projection error) is already caught internally and written to `data/preview.json` as a normal (`skipped`/`note`) result with exit 0.
+
+**Fix (owner chose option 2 — keep both crons, silence the redundant one's expected failure; did not touch the cron schedule itself or `pipeline/preview.py`):** in `.github/workflows/preview.yml`, the "Run preview pipeline" step now captures `pipeline/preview.py`'s combined stdout+stderr and exit code instead of letting the step fail directly. If the exit code is non-zero **and** the output matches `^Preview aborted: past` (the exact, sole abort message), the step logs a note and exits 0 (`aborted=true` output) — this is the expected redundant-cron no-op case, not an alert-worthy failure. Any other non-zero exit (a real bug — network failure, traceback, etc.) is not matched by that grep and still exits non-zero, so the job still fails loudly as before. The subsequent "Commit preview snapshot" and "Trigger deploy" steps are now gated on `steps.preview.outputs.aborted != 'true'`, so the newly-successful abort case doesn't spuriously commit (would have been a no-op anyway via the existing `git diff --staged --quiet` guard) or fire a redundant `deploy.yml` dispatch.
+
+**Verification:** simulated all three exit paths (real success, expected abort, genuine failure) against the exact bash logic added to the workflow — confirmed `aborted=false`/exit 0 for success, `aborted=true`/exit 0 for the abort case, `aborted=false`/exit 1 for a simulated genuine failure (traceback). `pipeline/preview.py` itself was not modified; full pipeline test suite re-run afterward (85 passed, 14 skipped) to confirm no regression, though this change only touches workflow YAML.
+
+**Not done (left for the owner to decide later if the noise persists in a way they don't like):** did not collapse the two crons into one DST-aware schedule (option 1) or change `ABORT_CUTOFF`/the sleep-target logic in `preview.py` itself. The redundant cron will keep firing and aborting-silently every weekday until the DST season flips or someone revisits the schedule.
 
 ---
