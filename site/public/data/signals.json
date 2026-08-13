@@ -1,5 +1,5 @@
 {
-  "last_session": "2026-08-12",
+  "last_session": "2026-08-13",
   "data_stale": false,
   "state": {
     "machine": "EXIT",
@@ -8,7 +8,7 @@
     "position_multiplier": 0.0,
     "suggested_size": 0.0,
     "arm_mode_a": true,
-    "arm_mode_b": false,
+    "arm_mode_b": true,
     "short_permission": {
       "ma50_vol": false,
       "id20_neg": true,
@@ -17,32 +17,32 @@
     }
   },
   "today": {
-    "close": 546.61,
-    "ret": 0.0232,
-    "id20": -0.0864,
-    "on20": 0.0861,
-    "ret20": -0.0024,
-    "id20_z": -1.4101,
-    "on20_mom": 0.0032,
-    "dd20": -0.016,
-    "vix_slope": 3.63,
-    "real_chg20": 0.12,
-    "ma20": 525.58,
-    "ma50": 564.41,
-    "ma200": 412.36,
-    "rv10": 0.5598,
-    "rv20": 0.5974,
+    "close": 550.74,
+    "ret": 0.0076,
+    "id20": -0.0633,
+    "on20": 0.1156,
+    "ret20": 0.0497,
+    "id20_z": -1.0876,
+    "on20_mom": 0.0968,
+    "dd20": -0.0086,
+    "vix_slope": 3.98,
+    "real_chg20": 0.09,
+    "ma20": 526.59,
+    "ma50": 563.33,
+    "ma200": 413.64,
+    "rv10": 0.411,
+    "rv20": 0.5742,
     "rv20_p90": 0.6704,
-    "turb": 0.5058,
-    "ar1": -0.0047,
-    "rsi14": 52.1792,
+    "turb": 0.1185,
+    "ar1": -0.0357,
+    "rsi14": 53.1488,
     "dist20": 4,
-    "vrp": -0.1497,
-    "iv30_asof": "2026-08-12",
-    "gap_quality": "confirmed",
-    "asia_on20": 0.0384,
+    "vrp": -0.1158,
+    "iv30_asof": "2026-08-13",
+    "gap_quality": "none",
+    "asia_on20": 0.0686,
     "hollow_count20": 1,
-    "id20_pctl120": 0.1417,
+    "id20_pctl120": 0.2333,
     "id20_is_sample_low": false,
     "id20_is_sample_high": false,
     "id20_history_months": 19
@@ -446,7 +446,8 @@
       "2026-08-07",
       "2026-08-10",
       "2026-08-11",
-      "2026-08-12"
+      "2026-08-12",
+      "2026-08-13"
     ],
     "close": [
       313.35,
@@ -601,7 +602,8 @@
       543.27,
       529.39,
       534.2,
-      546.61
+      546.61,
+      550.74
     ],
     "ma20": [
       303.9,
@@ -756,7 +758,8 @@
       528.91,
       527.7,
       526.01,
-      525.58
+      525.58,
+      526.59
     ],
     "id20": [
       -0.0636,
@@ -911,23 +914,24 @@
       -0.1103,
       -0.1228,
       -0.108,
-      -0.0864
+      -0.0858,
+      -0.0633
     ],
     "id20_z": [
-      -1.2649,
-      -1.3066,
-      -1.0054,
-      -1.0497,
-      -1.3319,
-      -1.2529,
-      -1.1122,
-      -0.528,
-      -0.2524,
-      -0.4899,
-      0.0935,
-      0.3392,
-      0.3538,
-      0.2498,
+      -1.2616,
+      -1.3032,
+      -1.0026,
+      -1.0468,
+      -1.3284,
+      -1.2496,
+      -1.1092,
+      -0.5261,
+      -0.2511,
+      -0.4881,
+      0.0941,
+      0.3394,
+      0.3539,
+      0.2501,
       0.0326,
       -0.0352,
       0.1623,
@@ -1066,7 +1070,8 @@
       -1.7776,
       -1.933,
       -1.7149,
-      -1.4101
+      -1.4014,
+      -1.0876
     ],
     "on20": [
       0.083,
@@ -1221,7 +1226,8 @@
       0.0593,
       0.0946,
       0.0621,
-      0.0861
+      0.0854,
+      0.1156
     ],
     "on20_mom": [
       0.0031,
@@ -1376,12 +1382,13 @@
       0.0166,
       0.1073,
       -0.0187,
-      0.0032
+      0.0025,
+      0.0968
     ],
     "rv20": [
       0.3175,
       0.3179,
-      0.3346,
+      0.3347,
       0.3368,
       0.343,
       0.3543,
@@ -1531,7 +1538,8 @@
       0.6195,
       0.6029,
       0.5957,
-      0.5974
+      0.5974,
+      0.5742
     ],
     "equity_strategy": [
       null,
@@ -1665,6 +1673,7 @@
       1.721595,
       1.720734,
       1.671486,
+      1.696561,
       1.696561,
       1.696561,
       1.696561,
@@ -1841,9 +1850,11 @@
       1.58806,
       1.547486,
       1.561547,
-      1.597823
+      1.597823,
+      1.609896
     ],
     "smh_close": [
+      null,
       null,
       null,
       null,
@@ -2151,7 +2162,8 @@
       -0.0128,
       0.0146,
       0.0059,
-      0.0384
+      0.0384,
+      0.0686
     ],
     "id20_pctl120": [
       0.0333,
@@ -2306,14 +2318,15 @@
       0.0917,
       0.0417,
       0.1083,
-      0.1417
+      0.1417,
+      0.2333
     ]
   },
   "checklist": [
     {
       "id": "id20",
       "label": "Intraday 20d stream",
-      "value": -0.0864,
+      "value": -0.0633,
       "fmt": "pct1",
       "status": "red",
       "note": "negative = distribution (institutions selling intraday)"
@@ -2321,7 +2334,7 @@
     {
       "id": "on20",
       "label": "Overnight 20d stream",
-      "value": 0.0861,
+      "value": 0.1156,
       "fmt": "pct1",
       "status": "amber",
       "note": "supporting overnight bid while id20 negative (divergence)"
@@ -2329,15 +2342,15 @@
     {
       "id": "ma",
       "label": "Close vs 20-DMA",
-      "value": 0.04,
+      "value": 0.0459,
       "fmt": "pct1",
       "status": "green",
-      "note": "re-entry line 525.6"
+      "note": "re-entry line 526.6"
     },
     {
       "id": "rv20",
       "label": "Realized vol (20d)",
-      "value": 0.5974,
+      "value": 0.5742,
       "fmt": "pct0",
       "status": "amber",
       "note": "regime normalizes < 50%; sets position size"
@@ -2345,7 +2358,7 @@
     {
       "id": "vrp",
       "label": "IV30 \u2212 RV20",
-      "value": -0.1497,
+      "value": -0.1158,
       "fmt": "pts",
       "status": "amber",
       "note": "puts cheap vs realized \u2014 hedge with options"
@@ -2353,15 +2366,15 @@
     {
       "id": "id20_z",
       "label": "id20 z-score (252d)",
-      "value": -1.4101,
+      "value": -1.0876,
       "fmt": "z",
       "status": "red",
-      "note": "z-score below threshold, but 20d trend \u2264 +2% \u2014 Mode B not fully armed"
+      "note": "Mode B armed \u2014 z-score below threshold and trend still positive"
     },
     {
       "id": "on20_mom",
       "label": "on20 momentum (5d)",
-      "value": 0.0032,
+      "value": 0.0968,
       "fmt": "pct1",
       "status": "green",
       "note": "overnight bid momentum positive"
@@ -2369,10 +2382,10 @@
     {
       "id": "real_chg20",
       "label": "Real yield \u039420d",
-      "value": 0.12,
+      "value": 0.09,
       "fmt": "bp",
-      "status": "amber",
-      "note": "rising real yields \u2014 headwind for growth/tech"
+      "status": "green",
+      "note": "stable/falling real yields"
     }
   ],
   "events": [
@@ -2441,6 +2454,6 @@
       "pop": 0.1574
     }
   ],
-  "generated_utc": "2026-08-12T21:35:39Z",
+  "generated_utc": "2026-08-13T21:30:06Z",
   "is_live_candle": false
 }
