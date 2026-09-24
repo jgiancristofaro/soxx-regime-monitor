@@ -31,6 +31,7 @@
 | [020](#020) | 2026-07-19 | Health check: all green, added missing typecheck script, flagged stale manual.json |
 | [021](#021) | 2026-07-19 | Automate IV30 and P/C OI from live options chain (manual.json becomes fallback) |
 | [022](#022) | 2026-07-21 | Silence expected preview.yml abort failures (redundant DST-buffer cron) |
+| [023](#023) | 2026-09-24 | Move short-permission indicator from Current State card to Signal Checklist card |
 
 ---
 
@@ -578,5 +579,21 @@ Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffect
 **Verification:** simulated all three exit paths (real success, expected abort, genuine failure) against the exact bash logic added to the workflow — confirmed `aborted=false`/exit 0 for success, `aborted=true`/exit 0 for the abort case, `aborted=false`/exit 1 for a simulated genuine failure (traceback). `pipeline/preview.py` itself was not modified; full pipeline test suite re-run afterward (85 passed, 14 skipped) to confirm no regression, though this change only touches workflow YAML.
 
 **Not done (left for the owner to decide later if the noise persists in a way they don't like):** did not collapse the two crons into one DST-aware schedule (option 1) or change `ABORT_CUTOFF`/the sleep-target logic in `preview.py` itself. The redundant cron will keep firing and aborting-silently every weekday until the DST season flips or someone revisits the schedule.
+
+---
+
+<a name="023"></a>
+## [023] 2026-09-24 — Move short-permission indicator from Current State card to Signal Checklist card
+
+**Origin:** Owner asked why the short-permission indicator (3-condition pass/fail grid: close < 50-DMA on volume, id20 < 0, on20 < 0) was displayed in the primary "Current State" hero box alongside state/since/position-size/price, rather than somewhere else. Per WORKLOG [011] ("Change 4"), it was originally placed there deliberately — "below position size" — on the theory that it's positioning info ("what can I do with my position right now": long size + short permission), not a signal. Agreed that's a coherent original rationale, but noted it's structurally a 3-condition checklist identical in kind to the adjacent Signal Checklist card, and roughly doubles the height of what should be a ~2-second-scannable state box for a condition that (per the methodology doc) has never actually fired. Recommended moving it; owner agreed.
+
+**Change:** `#short-permission` div moved in `site/index.html` from the end of the "Current State" card to the end of the "Signal Checklist" card (after `#checklist`). No changes to `site/src/state.ts` — `renderShortPermission()` looks up the container by ID and is agnostic to its position in the DOM. Added a `#short-permission` CSS rule in `styles.css` (border-top + padding-top/margin-top) so it reads as a distinct sub-section under the checklist rows rather than blending into either card; removed the old inline `margin-top` from the HTML now that spacing is handled by CSS.
+
+**Verification (per owner's request to double-check nothing broke):**
+- Confirmed `main` was clean and fully pushed (commit `0067d60`, `chore: daily data update 2026-09-23`) before making any change — that commit is the rollback point if needed (`git revert` or `git checkout 0067d60 -- site/`).
+- `npm run typecheck` and `npm run build` both clean.
+- Rendered the built site locally (`vite preview`) with real `data/signals.json` via a headless-browser check: confirmed `#short-permission` now lives inside the "Signal Checklist" card's DOM subtree, renders with no JS console/page errors, and the pass/fail grid + "Nearest line" note display correctly (screenshot-verified visual spacing/divider).
+- Full pipeline test suite re-run (85 passed, 14 skipped) — unaffected, as expected for a frontend-only change.
+- `git diff` reviewed line-by-line before committing; confirmed no unintended changes (a `site/package-lock.json` diff from a locally-different npm version regenerating `libc` metadata fields was reverted before committing, same recurring artifact noted in [020]).
 
 ---
