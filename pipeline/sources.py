@@ -17,6 +17,9 @@ def _validate(df: pd.DataFrame, source: str) -> pd.DataFrame:
     if df.empty:
         raise ValueError(f"{source}: empty result")
     df = df.copy()
+    # NaN comparisons are False, so incomplete bars (seen from yfinance on 2026-09-28)
+    # would otherwise slip past the checks below and null out id20 on the last row.
+    df = df.dropna(subset=["open", "high", "low", "close"])
     bad = (
         (df["close"] <= 0)
         | (df["open"] <= 0)

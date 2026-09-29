@@ -415,6 +415,14 @@ def main():
 
     _validate_consistency(result)
 
+    if result["today"].get("id20") is None or result["today"].get("on20") is None:
+        print(
+            f"ERROR: id20/on20 are null for last session {result.get('last_session')} "
+            "(incomplete final bar?) — refusing to write signals.json",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     signals_path.parent.mkdir(parents=True, exist_ok=True)
     with open(signals_path, "w") as f:
         json.dump(result, f, indent=2)

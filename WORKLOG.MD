@@ -32,6 +32,7 @@
 | [021](#021) | 2026-07-19 | Automate IV30 and P/C OI from live options chain (manual.json becomes fallback) |
 | [022](#022) | 2026-07-21 | Silence expected preview.yml abort failures (redundant DST-buffer cron) |
 | [023](#023) | 2026-09-24 | Move short-permission indicator from Current State card to Signal Checklist card |
+| [024](#024) | 2026-09-29 | Fix daily.yml crash on incomplete (NaN) final OHLCV bar |
 
 ---
 
@@ -595,5 +596,21 @@ Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffect
 - Rendered the built site locally (`vite preview`) with real `data/signals.json` via a headless-browser check: confirmed `#short-permission` now lives inside the "Signal Checklist" card's DOM subtree, renders with no JS console/page errors, and the pass/fail grid + "Nearest line" note display correctly (screenshot-verified visual spacing/divider).
 - Full pipeline test suite re-run (85 passed, 14 skipped) — unaffected, as expected for a frontend-only change.
 - `git diff` reviewed line-by-line before committing; confirmed no unintended changes (a `site/package-lock.json` diff from a locally-different npm version regenerating `libc` metadata fields was reverted before committing, same recurring artifact noted in [020]).
+
+---
+
+<a name="024"></a>
+## [024] 2026-09-29 — Fix daily.yml crash on incomplete (NaN) final OHLCV bar
+
+**Origin:** Owner got "Daily Data Update: All jobs have failed". Run 36501126330 (schedule, started 2026-09-29T00:02Z = 20:02 ET Mon Sep 28), step "Run pipeline" exited 1 in 5s: `TypeError: unsupported format string passed to NoneType.__format__` at `compute.py` `print(f"  id20: {result['today']['id20']:.4f}")`. Checkout, install, FRED, TSM/EWY, hourly, the new IV30/P-C OI fetch (`iv30=0.4893 pc_oi=1.8712`), and signal computation all succeeded; `signals.json` was written on the runner but the commit/deploy steps were skipped, so nothing bad reached `main`. Runs #116-#122 (Sep 22-25) were green. Result: no Sep 28 or Sep 29 data commit; `main` still at last_session 2026-09-25 (correctly not marked stale by itself since no bad file was committed).
+
+**Root cause (reproduced locally against the frozen fixture, not against live Yahoo — sandbox blocks it):** `sources._validate` rejected bad bars with comparisons (`<= 0`, low/high vs open/close), but every comparison against NaN is False, so a bar with NaN OHLC passes. The NaN last bar makes `id20 = close/open - 1` (and its 20-session rolling sum) NaN; `state_machine._safe` maps NaN to `None`; `compute.py` then crashed formatting `None`. **Unconfirmed:** *why* yfinance returned a NaN bar for 2026-09-28 (run logs don't retain the raw frame). Unrelated to the IV30/P-C OI automation (that step logged success).
+
+**Fix:**
+- `pipeline/sources.py` `_validate`: `df.dropna(subset=["open","high","low","close"])` before the other checks. A partial/NaN final bar is now dropped and the pipeline computes from the last complete session instead of nulling the signals. Applies to all three sources.
+- `pipeline/compute.py`: after `_validate_consistency`, if `today.id20` or `today.on20` is `None`, print a clear error and `sys.exit(1)` *before* writing `signals.json` (still fails loudly, but never writes a null-core-signal file and no longer dies on an opaque TypeError).
+- `pipeline/tests/test_sources.py` (S1-S4): all-NaN and partial-NaN last bars dropped; `today.id20`/`on20` non-null after validation; clean data unchanged. Full suite: 89 passed, 14 skipped.
+
+**Tradeoff to know about:** if a source keeps returning a NaN final bar, the run now silently falls back to the previous complete session (last_session lags by a day, `data_stale` stays false) rather than failing. The dashboard still shows the true `last_session` date, and a later cron/re-run picks up the bar once it's populated. Not changed: `data_stale` semantics — a follow-up could flag "latest bar older than expected trading day".
 
 ---
