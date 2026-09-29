@@ -614,3 +614,7 @@ Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffect
 **Tradeoff to know about:** if a source keeps returning a NaN final bar, the run now silently falls back to the previous complete session (last_session lags by a day, `data_stale` stays false) rather than failing. The dashboard still shows the true `last_session` date, and a later cron/re-run picks up the bar once it's populated. Not changed: `data_stale` semantics — a follow-up could flag "latest bar older than expected trading day".
 
 ---
+
+**Follow-up (same day):** manual re-run of `daily.yml` on the fixed code (run 36504110612, ~20:39 ET Sep 28) succeeded and committed `chore: daily data update 2026-09-29`, but `last_session` is still 2026-09-25 — the Sep 28 bar is not yet usable. SOXX, TSM and EWY all end on 09-25 (all three go through `_validate`; in the failed run all three had a 09-28 row), which is consistent with Yahoo serving an empty Sep 28 bar for every ticker at that hour, now dropped. Not provable from the logs because the drop was silent, so `_validate` now prints `<source>: dropped N NaN bar(s); last valid bar <date>` when it drops rows. Missing sessions self-heal: history is fetched by date range on every run, so the next scheduled run that gets a populated Sep 28 bar backfills it. No further manual action taken.
+
+---

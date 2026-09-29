@@ -19,7 +19,10 @@ def _validate(df: pd.DataFrame, source: str) -> pd.DataFrame:
     df = df.copy()
     # NaN comparisons are False, so incomplete bars (seen from yfinance on 2026-09-28)
     # would otherwise slip past the checks below and null out id20 on the last row.
+    n_before = len(df)
     df = df.dropna(subset=["open", "high", "low", "close"])
+    if len(df) < n_before:
+        print(f"  {source}: dropped {n_before - len(df)} NaN bar(s); last valid bar {df.index.max().date()}")
     bad = (
         (df["close"] <= 0)
         | (df["open"] <= 0)
