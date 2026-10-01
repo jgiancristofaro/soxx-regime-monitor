@@ -61,6 +61,40 @@ def _append_options_history(manual: dict, today_str: str) -> None:
         writer.writerow(row)
 
 
+def _load_committed_state() -> "tuple[pd.DataFrame | None, str | None]":
+    """Committed history.csv and settled last_session, read before a fetch overwrites them."""
+    hist = last = None
+    hp = DATA_DIR / "history.csv"
+    if hp.exists():
+        hist = pd.read_csv(hp, parse_dates=["date"]).set_index("date").sort_index()
+    sp = DATA_DIR / "signals.json"
+    if sp.exists():
+        with open(sp) as f:
+            last = json.load(f).get("last_session")
+    return hist, last
+
+
+def _restore_committed_tail(df: pd.DataFrame, prev_hist, prev_last_session) -> pd.DataFrame:
+    """Re-append committed sessions that a fresh fetch no longer returns.
+
+    Yahoo intermittently serves a NaN final bar for the latest session (seen after 00:00 UTC);
+    _validate drops it, which would otherwise move last_session backwards over good committed
+    data. Only sessions <= the committed settled last_session are restored, so a partial live
+    candle left in history.csv is never resurrected.
+    """
+    if prev_hist is None or prev_last_session is None or df.empty:
+        return df
+    cutoff = pd.Timestamp(prev_last_session)
+    missing = prev_hist[(prev_hist.index > df.index[-1]) & (prev_hist.index <= cutoff)]
+    if missing.empty:
+        return df
+    print(
+        f"  WARN: fetch ends {df.index[-1].date()} but committed data reaches {cutoff.date()} "
+        f"— restoring {len(missing)} committed session(s)"
+    )
+    return pd.concat([df, missing[df.columns]]).sort_index()
+
+
 def _drop_live_candle(
     df: pd.DataFrame,
     now_utc: "datetime | None" = None,
@@ -334,8 +368,10 @@ def main():
     stale = False
 
     print("Fetching OHLCV data...")
+    prev_hist, prev_last_session = _load_committed_state()
     try:
         df = fetch_ohlcv(days=600)
+        df = _restore_committed_tail(df, prev_hist, prev_last_session)
         df.to_csv(history_path)
         print(f"  Fetched {len(df)} rows, last session: {df.index[-1].date()}")
     except RuntimeError as e:

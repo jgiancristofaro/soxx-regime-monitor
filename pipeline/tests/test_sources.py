@@ -54,3 +54,36 @@ def test_s4_clean_data_unchanged(df_full):
     out = _validate(df_full, "test")
     assert len(out) == len(df_full)
     assert out.index.equals(df_full.index)
+
+
+# ── Committed-tail restore (compute.py) ─────────────────────────────────────
+# Regression for 2026-09-30: a later run got a NaN final bar, _validate dropped it,
+# and the run committed last_session=09-29 over the good 09-30 data from the prior run.
+from pipeline.compute import _restore_committed_tail
+
+
+def test_s5_dropped_final_bar_restored_from_committed(df_full):
+    fresh = df_full.iloc[:-1]
+    out = _restore_committed_tail(fresh, df_full, str(df_full.index[-1].date()))
+    assert out.index[-1] == df_full.index[-1]
+    assert len(out) == len(df_full)
+    assert list(out.columns) == list(df_full.columns)
+
+
+def test_s6_nothing_restored_when_fetch_is_current(df_full):
+    out = _restore_committed_tail(df_full, df_full, str(df_full.index[-1].date()))
+    assert out.equals(df_full)
+
+
+def test_s7_only_settled_sessions_restored(df_full):
+    # history.csv holds a trailing live candle beyond the committed settled last_session
+    committed_last = df_full.index[-2]
+    fresh = df_full.iloc[:-3]
+    out = _restore_committed_tail(fresh, df_full, str(committed_last.date()))
+    assert out.index[-1] == committed_last
+    assert df_full.index[-1] not in out.index
+
+
+def test_s8_no_committed_state_is_noop(df_full):
+    assert _restore_committed_tail(df_full, None, None).equals(df_full)
+    assert _restore_committed_tail(df_full, df_full, None).equals(df_full)

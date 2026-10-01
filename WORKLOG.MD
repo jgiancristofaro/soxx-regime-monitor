@@ -33,6 +33,7 @@
 | [022](#022) | 2026-07-21 | Silence expected preview.yml abort failures (redundant DST-buffer cron) |
 | [023](#023) | 2026-09-24 | Move short-permission indicator from Current State card to Signal Checklist card |
 | [024](#024) | 2026-09-29 | Fix daily.yml crash on incomplete (NaN) final OHLCV bar |
+| [025](#025) | 2026-10-01 | Fix [024] regression: NaN-bar drop overwrote good committed data with an older last_session |
 
 ---
 
@@ -616,5 +617,25 @@ Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffect
 ---
 
 **Follow-up (same day):** manual re-run of `daily.yml` on the fixed code (run 36504110612, ~20:39 ET Sep 28) succeeded and committed `chore: daily data update 2026-09-29`, but `last_session` is still 2026-09-25 — the Sep 28 bar is not yet usable. SOXX, TSM and EWY all end on 09-25 (all three go through `_validate`; in the failed run all three had a 09-28 row), which is consistent with Yahoo serving an empty Sep 28 bar for every ticker at that hour, now dropped. Not provable from the logs because the drop was silent, so `_validate` now prints `<source>: dropped N NaN bar(s); last valid bar <date>` when it drops rows. Missing sessions self-heal: history is fetched by date range on every run, so the next scheduled run that gets a populated Sep 28 bar backfills it. No further manual action taken.
+
+---
+
+<a name="025"></a>
+## [025] 2026-10-01 — Fix [024] regression: NaN-bar drop overwrote good committed data with an older last_session
+
+**Symptom:** at 4:01pm ET Oct 1 the dashboard showed Sep 29 as the latest session; Sep 30 was expected. No run failed.
+
+**What happened (from run logs):** run #128 (schedule, 23:19Z = 19:19 ET Sep 30) fetched 413 rows ending 2026-09-30 and committed 5d889b1 with last_session 09-30 — correct. Run #129 (schedule, 00:15Z Oct 1 = 20:15 ET Sep 30) got a NaN final bar for SOXX, TSM and EWY (`dropped 1 NaN bar(s); last valid bar 2026-09-29`), computed from 411 rows ending 09-29, and committed 33bc190 with last_session 09-29 over the good data. (413→411 = one NaN bar dropped + one row aging off the front of the 600-day window.) Both runs started 3-4h after the intended 17:30 ET target, so the sleep step was a no-op.
+
+**Root cause is my [024] fix.** Before it, a NaN final bar crashed the run, which incidentally left good committed data alone. [024] made the run continue on the last *fetched* complete session, but "last complete session" was relative to the fetched frame, not to what was already committed, so a later run could move last_session backwards. [024] noted the fallback tradeoff but wrongly framed it as harmless.
+
+**Pattern (observed, not proven):** all three NaN-final-bar runs (Sep 28 00:02Z, Sep 29 00:39Z, Oct 1 00:15Z) started just after 00:00 UTC; runs before UTC midnight got valid bars for the same session. Likely a Yahoo/yfinance quirk once the UTC date rolls over. Cannot verify from this sandbox (Yahoo blocked).
+
+**Fix (`pipeline/compute.py`):** `_load_committed_state()` reads committed `history.csv` and `signals.json` last_session *before* the fetch overwrites them; `_restore_committed_tail()` re-appends committed sessions that the fresh fetch no longer returns, limited to sessions <= the committed settled last_session (so a partial live candle sitting in history.csv is never resurrected), and logs a WARN when it does. Tests S5-S8 in `test_sources.py`; suite 93 passed, 14 skipped. `daily.yml` re-run dispatched to repair Sep 30 / add Oct 1.
+
+**Not changed / open:**
+- `data_stale` still only reflects "all sources failed", not "latest session older than expected".
+- **Cron drift:** daily.yml runs have been starting ~2-4h late (19:19 and 20:15 ET), which is what pushes them past UTC midnight. Not addressed.
+- **Preview dead since 2026-08-26:** `data/preview.json` still shows 2026-08-26. The last 8 `preview.yml` runs (Sep 25-30) all started 17:11-19:46 ET, i.e. 1.5-4h after the 15:38 ET target, so each hit the 15:59 ET abort and (correctly, per [022]) exited as a no-op. The [022] change that makes this a silent no-op also means the dead preview no longer produces any failure notification. Needs an owner decision on earlier/extra cron triggers.
 
 ---
