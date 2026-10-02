@@ -37,10 +37,10 @@
     "ar1": 0.0678,
     "rsi14": 63.2599,
     "dist20": 2,
-    "vrp": 0.0864,
-    "iv30_asof": "2026-10-01",
+    "vrp": 0.091,
+    "iv30_asof": "2026-10-02",
     "gap_quality": "none",
-    "asia_on20": 0.0211,
+    "asia_on20": null,
     "hollow_count20": 1,
     "id20_pctl120": 0.8167,
     "id20_is_sample_low": false,
@@ -2588,7 +2588,7 @@
       0.013,
       0.0184,
       0.0177,
-      0.0211
+      null
     ],
     "id20_pctl120": [
       0.0333,
@@ -2817,7 +2817,7 @@
     {
       "id": "vrp",
       "label": "IV30 \u2212 RV20",
-      "value": 0.0864,
+      "value": 0.091,
       "fmt": "pts",
       "status": "amber",
       "note": "neutral"
@@ -2913,6 +2913,6 @@
       "pop": 0.1574
     }
   ],
-  "generated_utc": "2026-10-01T23:33:58Z",
+  "generated_utc": "2026-10-02T00:20:47Z",
   "is_live_candle": false
 }
