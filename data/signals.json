@@ -22,11 +22,11 @@
     "id20": 0.087,
     "on20": 0.0106,
     "ret20": 0.0973,
-    "id20_z": 0.9861,
-    "on20_mom": -0.0065,
+    "id20_z": 0.9857,
+    "on20_mom": -0.0064,
     "dd20": -0.0113,
-    "vix_slope": 2.63,
-    "real_chg20": 0.45,
+    "vix_slope": 2.64,
+    "real_chg20": 0.46,
     "ma20": 552.72,
     "ma50": 534.08,
     "ma200": 459.15,
@@ -37,10 +37,10 @@
     "ar1": 0.0805,
     "rsi14": 62.9711,
     "dist20": 2,
-    "vrp": 0.0216,
-    "iv30_asof": "2026-10-08",
+    "vrp": 0.0393,
+    "iv30_asof": "2026-10-09",
     "gap_quality": "none",
-    "asia_on20": null,
+    "asia_on20": 0.0031,
     "hollow_count20": 2,
     "id20_pctl120": 0.6417,
     "id20_is_sample_low": false,
@@ -1278,7 +1278,7 @@
       1.2662,
       1.0668,
       1.0274,
-      0.9861
+      0.9857
     ],
     "on20": [
       0.083,
@@ -1666,7 +1666,7 @@
       0.076,
       0.0568,
       0.0295,
-      -0.0065
+      -0.0064
     ],
     "rv20": [
       0.3175,
@@ -2636,7 +2636,7 @@
       0.0459,
       0.0428,
       0.0208,
-      null
+      0.0031
     ],
     "id20_pctl120": [
       0.0333,
@@ -2869,7 +2869,7 @@
     {
       "id": "vrp",
       "label": "IV30 \u2212 RV20",
-      "value": 0.0216,
+      "value": 0.0393,
       "fmt": "pts",
       "status": "amber",
       "note": "neutral"
@@ -2877,7 +2877,7 @@
     {
       "id": "id20_z",
       "label": "id20 z-score (252d)",
-      "value": 0.9861,
+      "value": 0.9857,
       "fmt": "z",
       "status": "green",
       "note": "positive \u2014 no relative distribution signal"
@@ -2885,7 +2885,7 @@
     {
       "id": "on20_mom",
       "label": "on20 momentum (5d)",
-      "value": -0.0065,
+      "value": -0.0064,
       "fmt": "pct1",
       "status": "green",
       "note": "overnight bid momentum positive"
@@ -2893,7 +2893,7 @@
     {
       "id": "real_chg20",
       "label": "Real yield \u039420d",
-      "value": 0.45,
+      "value": 0.46,
       "fmt": "bp",
       "status": "red",
       "note": "rising real yields \u2014 headwind for growth/tech"
@@ -2965,6 +2965,6 @@
       "pop": 0.1574
     }
   ],
-  "generated_utc": "2026-10-08T00:34:55Z",
+  "generated_utc": "2026-10-09T00:02:31Z",
   "is_live_candle": false
 }
