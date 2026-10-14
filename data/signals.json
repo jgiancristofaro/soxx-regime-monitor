@@ -1,5 +1,5 @@
 {
-  "last_session": "2026-10-13",
+  "last_session": "2026-10-14",
   "data_stale": false,
   "state": {
     "machine": "RISK_ON",
@@ -10,39 +10,39 @@
     "arm_mode_a": false,
     "arm_mode_b": false,
     "short_permission": {
-      "ma50_vol": false,
+      "ma50_vol": true,
       "id20_neg": false,
-      "on20_neg": false,
+      "on20_neg": true,
       "all": false
     }
   },
   "today": {
-    "close": 543.9,
-    "ret": -0.0017,
-    "id20": 0.0651,
-    "on20": 0.0263,
-    "ret20": 0.0906,
-    "id20_z": 0.7059,
-    "on20_mom": 0.0008,
-    "dd20": -0.0774,
-    "vix_slope": 2.72,
-    "real_chg20": 0.29,
-    "ma20": 561.31,
-    "ma50": 538.69,
-    "ma200": 464.15,
-    "rv10": 0.2632,
-    "rv20": 0.326,
+    "close": 519.42,
+    "ret": -0.045,
+    "id20": 0.0513,
+    "on20": -0.012,
+    "ret20": 0.0392,
+    "id20_z": 0.5317,
+    "on20_mom": -0.0227,
+    "dd20": -0.1189,
+    "vix_slope": 2.69,
+    "real_chg20": 0.18,
+    "ma20": 562.17,
+    "ma50": 538.24,
+    "ma200": 465.22,
+    "rv10": 0.3299,
+    "rv20": 0.3702,
     "rv20_p90": 0.6704,
-    "turb": 0.0994,
-    "ar1": 0.457,
-    "rsi14": 45.5042,
-    "dist20": 2,
-    "vrp": 0.0953,
+    "turb": 1.623,
+    "ar1": 0.4527,
+    "rsi14": 37.3412,
+    "dist20": 3,
+    "vrp": 0.062,
     "iv30_asof": "2026-10-14",
     "gap_quality": "none",
-    "asia_on20": null,
+    "asia_on20": -0.0459,
     "hollow_count20": 2,
-    "id20_pctl120": 0.6333,
+    "id20_pctl120": 0.6167,
     "id20_is_sample_low": false,
     "id20_is_sample_high": false,
     "id20_history_months": 19
@@ -506,7 +506,8 @@
       "2026-10-08",
       "2026-10-09",
       "2026-10-12",
-      "2026-10-13"
+      "2026-10-13",
+      "2026-10-14"
     ],
     "close": [
       313.14,
@@ -704,7 +705,8 @@
       563.28,
       559.4,
       544.85,
-      543.9
+      543.9,
+      519.42
     ],
     "ma20": [
       303.7,
@@ -902,7 +904,8 @@
       555.03,
       556.67,
       559.05,
-      561.31
+      561.31,
+      562.17
     ],
     "id20": [
       -0.0636,
@@ -1100,7 +1103,8 @@
       0.0712,
       0.0474,
       0.0328,
-      0.0651
+      0.0651,
+      0.0513
     ],
     "id20_z": [
       -1.5885,
@@ -1298,7 +1302,8 @@
       0.7861,
       0.4905,
       0.3103,
-      0.7059
+      0.7059,
+      0.5317
     ],
     "on20": [
       0.083,
@@ -1496,7 +1501,8 @@
       0.02,
       0.0187,
       0.0633,
-      0.0263
+      0.0263,
+      -0.012
     ],
     "on20_mom": [
       0.0031,
@@ -1694,7 +1700,8 @@
       -0.0023,
       -0.0385,
       0.0242,
-      0.0008
+      0.0008,
+      -0.0227
     ],
     "rv20": [
       0.3175,
@@ -1892,7 +1899,8 @@
       0.3787,
       0.3769,
       0.3252,
-      0.326
+      0.326,
+      0.3702
     ],
     "equity_strategy": [
       null,
@@ -1942,7 +1950,7 @@
       0.942568,
       0.949405,
       0.958596,
-      0.925251,
+      0.92525,
       0.928417,
       0.946659,
       0.954028,
@@ -2090,7 +2098,8 @@
       1.847179,
       1.834455,
       1.786741,
-      1.783625
+      1.783625,
+      1.703347
     ],
     "equity_bh": [
       null,
@@ -2111,7 +2120,7 @@
       1.001752,
       1.025141,
       1.05253,
-      1.054486,
+      1.054487,
       1.011183,
       1.029842,
       1.009256,
@@ -2127,7 +2136,7 @@
       1.045114,
       1.03904,
       1.049523,
-      1.041901,
+      1.041902,
       1.057144,
       1.074547,
       1.041843,
@@ -2288,9 +2297,11 @@
       1.647629,
       1.636279,
       1.59372,
-      1.590941
+      1.590941,
+      1.519335
     ],
     "smh_close": [
+      null,
       null,
       null,
       null,
@@ -2684,7 +2695,8 @@
       0.0075,
       -0.0035,
       0.0316,
-      null
+      -0.0064,
+      -0.0459
     ],
     "id20_pctl120": [
       0.0333,
@@ -2882,14 +2894,15 @@
       0.625,
       0.5917,
       0.5667,
-      0.6333
+      0.6333,
+      0.6167
     ]
   },
   "checklist": [
     {
       "id": "id20",
       "label": "Intraday 20d stream",
-      "value": 0.0651,
+      "value": 0.0513,
       "fmt": "pct1",
       "status": "green",
       "note": "positive = institutional buying"
@@ -2897,23 +2910,23 @@
     {
       "id": "on20",
       "label": "Overnight 20d stream",
-      "value": 0.0263,
+      "value": -0.012,
       "fmt": "pct1",
       "status": "green",
-      "note": "both streams positive (aligned)"
+      "note": "overnight fading while intraday positive (nascent divergence)"
     },
     {
       "id": "ma",
       "label": "Close vs 20-DMA",
-      "value": -0.031,
+      "value": -0.076,
       "fmt": "pct1",
       "status": "red",
-      "note": "re-entry line 561.3"
+      "note": "re-entry line 562.2"
     },
     {
       "id": "rv20",
       "label": "Realized vol (20d)",
-      "value": 0.326,
+      "value": 0.3702,
       "fmt": "pct0",
       "status": "green",
       "note": "regime normalizes < 50%; sets position size"
@@ -2921,7 +2934,7 @@
     {
       "id": "vrp",
       "label": "IV30 \u2212 RV20",
-      "value": 0.0953,
+      "value": 0.062,
       "fmt": "pts",
       "status": "amber",
       "note": "neutral"
@@ -2929,7 +2942,7 @@
     {
       "id": "id20_z",
       "label": "id20 z-score (252d)",
-      "value": 0.7059,
+      "value": 0.5317,
       "fmt": "z",
       "status": "green",
       "note": "positive \u2014 no relative distribution signal"
@@ -2937,17 +2950,17 @@
     {
       "id": "on20_mom",
       "label": "on20 momentum (5d)",
-      "value": 0.0008,
+      "value": -0.0227,
       "fmt": "pct1",
-      "status": "green",
-      "note": "overnight bid momentum positive"
+      "status": "amber",
+      "note": "overnight bid weakening"
     },
     {
       "id": "real_chg20",
       "label": "Real yield \u039420d",
-      "value": 0.29,
+      "value": 0.18,
       "fmt": "bp",
-      "status": "red",
+      "status": "amber",
       "note": "rising real yields \u2014 headwind for growth/tech"
     }
   ],
@@ -3017,6 +3030,6 @@
       "pop": 0.1574
     }
   ],
-  "generated_utc": "2026-10-14T00:01:53Z",
+  "generated_utc": "2026-10-14T22:50:17Z",
   "is_live_candle": false
 }
