@@ -1510,6 +1510,39 @@ def test_z5_consistency_validator_rejects_defective():
         _validate_consistency(defective)
 
 
+def _accum_result(band_state, overlay=True, machine="RISK_ON"):
+    return {
+        "state": {"machine": machine, "accum_overlay": overlay, "position_multiplier": 1.0, "since": "2026-09-10"},
+        "bands": [
+            {"start": "2026-07-15", "end": "2026-09-10", "state": "EXIT"},
+            {"start": "2026-09-11", "end": None, "state": band_state},
+        ],
+        "history": [],
+        "trades": [
+            {"date": "2026-07-14", "price": 567.92, "action": "EXIT", "reason": "exec-into-strength"},
+            {"date": "2026-09-10", "price": 560.0, "action": "REENTER", "reason": "disarm"},
+        ],
+        "series": {"dates": ["2026-09-10", "2026-09-11"], "equity_strategy": [1.5, 1.4]},
+    }
+
+
+def test_z7_validator_accepts_active_accum_overlay():
+    """Z7: RISK_ON machine + ACCUM overlay => last band is ACCUM; must not abort (2026-10-16 daily failure)."""
+    from pipeline.state_machine import _validate_consistency
+    _validate_consistency(_accum_result("ACCUM", overlay=True))
+
+
+def test_z8_validator_still_rejects_band_mismatch():
+    """Z8: The band/state invariant still fires for real mismatches."""
+    from pipeline.state_machine import _validate_consistency
+    with pytest.raises(ValueError, match="Consistency violation"):
+        _validate_consistency(_accum_result("RISK_ON", overlay=True))   # overlay on, band not ACCUM
+    with pytest.raises(ValueError, match="Consistency violation"):
+        _validate_consistency(_accum_result("ACCUM", overlay=False))    # band ACCUM, overlay off
+    with pytest.raises(ValueError, match="Consistency violation"):
+        _validate_consistency(_accum_result("ACCUM", overlay=True, machine="MONITOR"))  # overlay only applies to RISK_ON
+
+
 def test_z6_jun18_exit_golden(result_mode_a):
     """Z6: Jun 18 EXIT @ 639.45 unchanged — anchor of the trade record."""
     t = result_mode_a["trades"][2]

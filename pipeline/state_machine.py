@@ -687,9 +687,13 @@ def _validate_consistency(result: dict) -> None:
     dates = result["series"]["dates"]
     eq_s = result["series"]["equity_strategy"]
 
-    if bands and bands[-1]["state"] != state:
+    # Bands carry the effective state (ACCUM overlay on top of RISK_ON); state.machine is the raw
+    # machine state. Compare like with like, or any session with the overlay active would abort.
+    effective = ACCUM if (state == RISK_ON and result["state"].get("accum_overlay")) else state
+    if bands and bands[-1]["state"] != effective:
         raise ValueError(
-            f"Consistency violation: bands[-1].state={bands[-1]['state']!r} != state.machine={state!r}"
+            f"Consistency violation: bands[-1].state={bands[-1]['state']!r} != "
+            f"effective state={effective!r} (state.machine={state!r})"
         )
 
     if state == "EXIT" and pos_mult != 0.0:

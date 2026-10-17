@@ -34,6 +34,7 @@
 | [023](#023) | 2026-09-24 | Move short-permission indicator from Current State card to Signal Checklist card |
 | [024](#024) | 2026-09-29 | Fix daily.yml crash on incomplete (NaN) final OHLCV bar |
 | [025](#025) | 2026-10-01 | Fix [024] regression: NaN-bar drop overwrote good committed data with an older last_session |
+| [026](#026) | 2026-10-16 | Fix daily.yml abort: consistency validator rejected an active ACCUM overlay |
 
 ---
 
@@ -637,5 +638,21 @@ Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffect
 - `data_stale` still only reflects "all sources failed", not "latest session older than expected".
 - **Cron drift:** daily.yml runs have been starting ~2-4h late (19:19 and 20:15 ET), which is what pushes them past UTC midnight. Not addressed.
 - **Preview dead since 2026-08-26:** `data/preview.json` still shows 2026-08-26. The last 8 `preview.yml` runs (Sep 25-30) all started 17:11-19:46 ET, i.e. 1.5-4h after the 15:38 ET target, so each hit the 15:59 ET abort and (correctly, per [022]) exited as a no-op. The [022] change that makes this a silent no-op also means the dead preview no longer produces any failure notification. Needs an owner decision on earlier/extra cron triggers.
+
+---
+
+<a name="026"></a>
+## [026] 2026-10-16 — Fix daily.yml abort: consistency validator rejected an active ACCUM overlay
+
+**Symptom:** the Fri Oct 16 daily refresh failed twice (runs #153 18:18 ET and #154 19:08 ET), identically, in "Run pipeline": `ValueError: Consistency violation: bands[-1].state='ACCUM' != state.machine='RISK_ON'` raised from `_validate_consistency` after "Computing signals...". Fetch, FRED, TSM/EWY, hourly and the IV30/P-C OI step were all healthy (Oct 16 bar fetched, 415 rows). Commit/deploy steps skipped, so nothing bad was published; site and `main` stayed on Oct 15. Not transient — a re-run would have failed the same way.
+
+**Root cause:** latent bug in the v3.7 validator (Jul 11). Invariant 1 compared `bands[-1].state` to `state.machine`, but bands carry the *effective* state (ACCUM when the machine is RISK_ON and the overlay flag is on) while `state.machine` is the raw machine state. Any session where the ACCUM overlay is active on the last bar therefore aborts the write. The overlay hadn't been active on a final bar since the validator was added (last ACCUM was March), so it never fired until Oct 16, which implies the ACCUM overlay (id20 > +2% with ret20 < -2%) switched on that day. Cannot confirm Oct 16's raw values from this sandbox (Yahoo blocked); the next successful run will show them.
+
+**Fix (`pipeline/state_machine.py`, validator only — no constants, signal logic, transitions or golden record touched):** invariant 1 now compares the last band to the effective state (`ACCUM if machine == RISK_ON and accum_overlay else machine`). Error text reports both. Tests Z7 (active overlay accepted) and Z8 (real mismatches still raise: overlay on/band not ACCUM, band ACCUM/overlay off, overlay with non-RISK_ON machine). Also reproduced end to end by appending synthetic gap-down/intraday-recovery bars to the committed `history.csv`: pre-fix code raises the exact production error; fixed code produces machine=RISK_ON, overlay=True, band=ACCUM and validates. Suite: 95 passed, 14 skipped. `daily.yml` re-dispatched manually.
+
+**Noted, not changed:**
+- `data/preview.json` is updating again (preview.yml runs on Oct 14-16 succeeded), so the [025] preview concern appears resolved.
+- A subagent's side-note that the committed state is "EXIT since 2026-07-14" was wrong; committed state is RISK_ON since 2026-09-10 (EXIT ended 09-10).
+- ~91 open `regime-alert` issues from the "Notify on state change" step (one per run in MONITOR/EXIT). Pure noise now; not touched.
 
 ---
