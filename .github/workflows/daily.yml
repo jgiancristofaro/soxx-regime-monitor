@@ -30,6 +30,8 @@ jobs:
         run: pip install -r pipeline/requirements.txt
 
       - name: Sleep until 17:30 ET
+        # Scheduled runs wait for settled data; manual dispatches run immediately.
+        if: github.event_name != 'workflow_dispatch'
         run: |
           TARGET=$(TZ=America/New_York date -d 'today 17:30:00' +%s)
           NOW=$(date +%s)

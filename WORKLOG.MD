@@ -35,6 +35,7 @@
 | [024](#024) | 2026-09-29 | Fix daily.yml crash on incomplete (NaN) final OHLCV bar |
 | [025](#025) | 2026-10-01 | Fix [024] regression: NaN-bar drop overwrote good committed data with an older last_session |
 | [026](#026) | 2026-10-16 | Fix daily.yml abort: consistency validator rejected an active ACCUM overlay |
+| [027](#027) | 2026-10-17 | daily.yml: manual dispatch no longer sleeps until 17:30 ET |
 
 ---
 
@@ -654,5 +655,14 @@ Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffect
 - `data/preview.json` is updating again (preview.yml runs on Oct 14-16 succeeded), so the [025] preview concern appears resolved.
 - A subagent's side-note that the committed state is "EXIT since 2026-07-14" was wrong; committed state is RISK_ON since 2026-09-10 (EXIT ended 09-10).
 - ~91 open `regime-alert` issues from the "Notify on state change" step (one per run in MONITOR/EXIT). Pure noise now; not touched.
+
+---
+
+<a name="027"></a>
+## [027] 2026-10-17 — daily.yml: manual dispatch no longer sleeps until 17:30 ET
+
+Owner asked for a manual refresh Saturday morning to pick up the Oct 16 session (the [026] re-run at 20:03 ET Fri got a NaN final bar from Yahoo and dropped it). The dispatched run (39034201190, 08:51 ET) sat in "Sleep until 17:30 ET" — that step only skips when 17:30 ET has already passed, so a morning manual run would have slept ~8.5h. Cancelled it. Earlier manual runs (post-17:30 ET) never exposed this.
+
+**Change:** the sleep step now has `if: github.event_name != 'workflow_dispatch'`. Scheduled runs are unchanged (still wait for settled data). Manual runs execute immediately; the v3.6 live-candle guard in `compute.py` (drops a today-dated row before 21:30 UTC) still protects a manual run fired mid-session. No pipeline code touched. Manual runs on a weekday before the close fetch a not-yet-settled session, so use them after ~17:30 ET or on weekends.
 
 ---
