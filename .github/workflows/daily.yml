@@ -8,6 +8,11 @@ on:
     # EST (UTC-5): fires ~90min before the 22:30 UTC (17:30 ET) sleep target.
     - cron: '0 21 * * 1-5'
   workflow_dispatch:  # allow manual run
+    inputs:
+      include_today:
+        description: "Include today's bar if run after 16:15 ET on a weekday (skips the 21:30 UTC live-candle guard)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -42,6 +47,8 @@ jobs:
           fi
 
       - name: Run pipeline
+        env:
+          ALLOW_POST_CLOSE: ${{ github.event_name == 'workflow_dispatch' && inputs.include_today && '1' || '' }}
         run: python pipeline/compute.py
 
       - name: Copy data for site build

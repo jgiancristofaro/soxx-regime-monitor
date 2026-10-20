@@ -98,6 +98,7 @@ def _restore_committed_tail(df: pd.DataFrame, prev_hist, prev_last_session) -> p
 def _drop_live_candle(
     df: pd.DataFrame,
     now_utc: "datetime | None" = None,
+    allow_post_close: bool = False,
 ) -> "tuple[pd.DataFrame, bool]":
     """Drop the last row if its date equals today and current UTC time is before 21:30.
 
@@ -111,6 +112,12 @@ def _drop_live_candle(
     past_cutoff = now_utc.hour > CUTOFF_HOUR or (
         now_utc.hour == CUTOFF_HOUR and now_utc.minute >= CUTOFF_MINUTE
     )
+
+    if allow_post_close and not past_cutoff:
+        # Manual-run opt-in: accept today's bar once the close has printed (weekday, >= 16:15 ET).
+        from zoneinfo import ZoneInfo
+        et = now_utc.astimezone(ZoneInfo("America/New_York"))
+        past_cutoff = et.weekday() < 5 and (et.hour, et.minute) >= (16, 15)
 
     if df.empty or past_cutoff:
         return df, False
@@ -385,7 +392,10 @@ def main():
             sys.exit(1)
 
     # Live-candle guard (v3.6 Change 3): drop today's row if before 21:30 UTC
-    df, is_live_candle = _drop_live_candle(df)
+    allow_post_close = os.environ.get("ALLOW_POST_CLOSE") == "1"
+    if allow_post_close:
+        print("  Manual include_today: accepting today's bar if past 16:15 ET (weekday)")
+    df, is_live_candle = _drop_live_candle(df, allow_post_close=allow_post_close)
     if is_live_candle:
         print(f"  WARN: Dropped live intraday candle (before 21:30 UTC); last settled: {df.index[-1].date()}")
 

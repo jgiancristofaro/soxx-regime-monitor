@@ -1221,6 +1221,36 @@ def test_y5_live_candle_guard():
     assert not was_no_drop, "Y5: Row dated tomorrow should never be dropped (date mismatch)"
 
 
+def test_y5b_live_candle_guard_manual_post_close_opt_in():
+    """Y5b: allow_post_close accepts today's bar only on a weekday >= 16:15 ET; default behavior unchanged."""
+    from datetime import timezone as _tz
+    from pipeline.compute import _drop_live_candle
+
+    df_base = load_fixture(str(FIXTURE))
+    fake_date = pd.Timestamp("2026-10-20")  # Tuesday, EDT (UTC-4)
+    extra = df_base.iloc[[-1]].copy()
+    extra.index = [fake_date]
+    df_live = pd.concat([df_base, extra])
+
+    t_1620_et = datetime(2026, 10, 20, 20, 20, tzinfo=_tz.utc)   # 16:20 ET
+    t_1610_et = datetime(2026, 10, 20, 20, 10, tzinfo=_tz.utc)   # 16:10 ET
+    t_1000_et = datetime(2026, 10, 20, 14, 0, tzinfo=_tz.utc)    # 10:00 ET (intraday)
+
+    # default: still dropped at 16:20 ET
+    assert _drop_live_candle(df_live, now_utc=t_1620_et)[1] is True
+    # opt-in: retained after 16:15 ET
+    out, dropped = _drop_live_candle(df_live, now_utc=t_1620_et, allow_post_close=True)
+    assert not dropped and out.index[-1] == fake_date
+    # opt-in: still dropped before 16:15 ET and intraday
+    assert _drop_live_candle(df_live, now_utc=t_1610_et, allow_post_close=True)[1] is True
+    assert _drop_live_candle(df_live, now_utc=t_1000_et, allow_post_close=True)[1] is True
+    # opt-in never applies on a weekend-dated "today" (Sat 2026-10-17 20:20 UTC)
+    sat = df_base.iloc[[-1]].copy(); sat.index = [pd.Timestamp("2026-10-17")]
+    assert _drop_live_candle(pd.concat([df_base, sat]),
+                             now_utc=datetime(2026, 10, 17, 20, 20, tzinfo=_tz.utc),
+                             allow_post_close=True)[1] is True
+
+
 def test_y6_flags_off_isolation(df_full):
     """Y6: WEAK_BOUNCE_EXIT=False (explicit default) preserves v3.2 golden record byte-identical."""
     assert WEAK_BOUNCE_EXIT is False, "Y6: WEAK_BOUNCE_EXIT must default to False"

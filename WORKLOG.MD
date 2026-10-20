@@ -36,6 +36,7 @@
 | [025](#025) | 2026-10-01 | Fix [024] regression: NaN-bar drop overwrote good committed data with an older last_session |
 | [026](#026) | 2026-10-16 | Fix daily.yml abort: consistency validator rejected an active ACCUM overlay |
 | [027](#027) | 2026-10-17 | daily.yml: manual dispatch no longer sleeps until 17:30 ET |
+| [028](#028) | 2026-10-20 | daily.yml: opt-in include_today for same-day manual refresh after the close |
 
 ---
 
@@ -664,5 +665,17 @@ Full suite: 85 passed (75 prior + 10 new), 14 skipped — golden record unaffect
 Owner asked for a manual refresh Saturday morning to pick up the Oct 16 session (the [026] re-run at 20:03 ET Fri got a NaN final bar from Yahoo and dropped it). The dispatched run (39034201190, 08:51 ET) sat in "Sleep until 17:30 ET" — that step only skips when 17:30 ET has already passed, so a morning manual run would have slept ~8.5h. Cancelled it. Earlier manual runs (post-17:30 ET) never exposed this.
 
 **Change:** the sleep step now has `if: github.event_name != 'workflow_dispatch'`. Scheduled runs are unchanged (still wait for settled data). Manual runs execute immediately; the v3.6 live-candle guard in `compute.py` (drops a today-dated row before 21:30 UTC) still protects a manual run fired mid-session. No pipeline code touched. Manual runs on a weekday before the close fetch a not-yet-settled session, so use them after ~17:30 ET or on weekends.
+
+---
+
+
+<a name="028"></a>
+## [028] 2026-10-20 — daily.yml: opt-in include_today for same-day manual refresh after the close
+
+Owner wanted a manual refresh at 16:20 ET Tue Oct 20 instead of waiting for the evening cron. After [027] the manual run no longer sleeps, but the v3.6 live-candle guard (`_drop_live_candle`) still drops any same-day bar before 21:30 UTC (17:30 ET), so a plain manual run at 16:20 ET would have silently produced Oct 19 as the last session — i.e. no change.
+
+**Change:** `workflow_dispatch` gains a boolean input `include_today` (default false) -> env `ALLOW_POST_CLOSE=1` on the "Run pipeline" step (only for dispatch events) -> `_drop_live_candle(..., allow_post_close=True)`, which treats the cutoff as passed only when it is a weekday and >= 16:15 ET (zoneinfo America/New_York, so DST-safe). Before 16:15 ET, intraday, and on weekends the guard still drops the row. Scheduled runs and the default manual run are unchanged; Y5 is untouched and Y5b covers the new path (96 passed, 14 skipped).
+
+**Tradeoff:** a bar fetched 15-90 min after the close can carry provisional consolidated volume (seen before: 16,439,132 first vs 16,670,500 settled for 2026-10-15). OHLC-based core signals (id20/on20/state) are unaffected; volume-dependent display fields (short-permission vol>1.5x, dist20) could differ slightly until the evening scheduled run, which refetches full history and overwrites it.
 
 ---
