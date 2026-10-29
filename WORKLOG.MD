@@ -37,6 +37,7 @@
 | [026](#026) | 2026-10-16 | Fix daily.yml abort: consistency validator rejected an active ACCUM overlay |
 | [027](#027) | 2026-10-17 | daily.yml: manual dispatch no longer sleeps until 17:30 ET |
 | [028](#028) | 2026-10-20 | daily.yml: opt-in include_today for same-day manual refresh after the close |
+| [029](#029) | 2026-10-29 | Stale-dashboard check: daily pipeline healthy; preview dead since Aug 26 (correction to [026]) |
 
 ---
 
@@ -677,5 +678,22 @@ Owner wanted a manual refresh at 16:20 ET Tue Oct 20 instead of waiting for the 
 **Change:** `workflow_dispatch` gains a boolean input `include_today` (default false) -> env `ALLOW_POST_CLOSE=1` on the "Run pipeline" step (only for dispatch events) -> `_drop_live_candle(..., allow_post_close=True)`, which treats the cutoff as passed only when it is a weekday and >= 16:15 ET (zoneinfo America/New_York, so DST-safe). Before 16:15 ET, intraday, and on weekends the guard still drops the row. Scheduled runs and the default manual run are unchanged; Y5 is untouched and Y5b covers the new path (96 passed, 14 skipped).
 
 **Tradeoff:** a bar fetched 15-90 min after the close can carry provisional consolidated volume (seen before: 16,439,132 first vs 16,670,500 settled for 2026-10-15). OHLC-based core signals (id20/on20/state) are unaffected; volume-dependent display fields (short-permission vol>1.5x, dist20) could differ slightly until the evening scheduled run, which refetches full history and overwrites it.
+
+---
+
+<a name="029"></a>
+## [029] 2026-10-29 — Stale-dashboard check: daily pipeline healthy; preview dead since Aug 26 (correction to [026])
+
+Owner reported the dashboard hadn't updated for ~2 days and asked for troubleshooting plus a manual run (done ~19:03 ET Thu Oct 29).
+
+**Findings (no code change made):**
+- **Settled data was not broken.** Every `daily.yml` run Oct 22-29 succeeded, each followed by a successful `deploy.yml`. Committed `last_session` advanced every trading day (Oct 22, 23, 26, 27, 28). No NaN-bar drops, restore warnings, or validator aborts in the runs checked at the commit level (logs not pulled).
+- **Timing is the visible problem.** Scheduled daily runs land 22:44-00:31 UTC (6:44-8:31pm ET) against a 17:30 ET design target, and at 19:02 ET Oct 29 no daily run had started yet. Anyone checking before ~7-8:30pm ET sees the previous session; "2 days stale" is consistent with checking each afternoon/early evening. Not provable which view the owner saw.
+- **The preview banner has been dead since 2026-08-26.** `data/preview.json` still says `date: 2026-08-26`; the last commit touching it is the Sep 29 settle run. `preview.yml` shows "success" every day only because its runs start 21:05-22:57 UTC (5:05-6:57pm ET), 1.5-3.5h after the 15:38 ET target, so `preview.py` hits its 15:59 ET abort and the [022] wrapper reports a clean no-op.
+- **Correction to [026]:** that entry said preview "appears resolved" because preview.yml runs on Oct 14-16 succeeded. Wrong — success there means no-op abort, not a written preview.
+
+**Manual run:** `daily.yml` dispatch (run 40970383552, after 17:30 ET so no sleep needed) succeeded; commit `b2b6986` has last_session 2026-10-29 (close 513.86, -1.55%), state RISK_ON since 2026-10-27, iv30/pc_oi auto-fetched.
+
+**Open (owner decision, not changed):** GitHub's scheduled-run delay on this repo is now ~3-4h. Candidate mitigation: move both crons earlier (nominal time well before target, the sleep step already makes early starts safe) for `preview.yml` (so it starts before 15:38 ET) and `daily.yml`. Untested because delay behavior is GitHub-side and variable.
 
 ---
