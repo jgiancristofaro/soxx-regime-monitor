@@ -38,6 +38,7 @@
 | [027](#027) | 2026-10-17 | daily.yml: manual dispatch no longer sleeps until 17:30 ET |
 | [028](#028) | 2026-10-20 | daily.yml: opt-in include_today for same-day manual refresh after the close |
 | [029](#029) | 2026-10-29 | Stale-dashboard check: daily pipeline healthy; preview dead since Aug 26 (correction to [026]) |
+| [030](#030) | 2026-11-09 | Fix recurring "latest session vanishes" after 00:00 UTC: yfinance same-date merge discarded the real bar |
 
 ---
 
@@ -695,5 +696,22 @@ Owner reported the dashboard hadn't updated for ~2 days and asked for troublesho
 **Manual run:** `daily.yml` dispatch (run 40970383552, after 17:30 ET so no sleep needed) succeeded; commit `b2b6986` has last_session 2026-10-29 (close 513.86, -1.55%), state RISK_ON since 2026-10-27, iv30/pc_oi auto-fetched.
 
 **Open (owner decision, not changed):** GitHub's scheduled-run delay on this repo is now ~3-4h. Candidate mitigation: move both crons earlier (nominal time well before target, the sleep step already makes early starts safe) for `preview.yml` (so it starts before 15:38 ET) and `daily.yml`. Untested because delay behavior is GitHub-side and variable.
+
+---
+
+<a name="030"></a>
+## [030] 2026-11-09 — Fix recurring "latest session vanishes" after 00:00 UTC: yfinance same-date merge discarded the real bar
+
+**Symptom:** owner: "dashboard didn't update again today" (Mon Nov 9). No daily run started until 02:27 UTC Nov 10 (9:27pm ET), and that run finished green with `last_session` still 2026-11-06. Its log: `yfinance: dropped 1 NaN bar(s); last valid bar 2026-11-06`, identical for SOXX, TSM and EWY. This is the same signature as Sep 28/29, Oct 1 and Oct 17 ([024], [025], [026]) — every occurrence on a run that started after 00:00 UTC.
+
+**Cause (reproduced against yfinance's real code, not against live Yahoo — sandbox blocks it):** `yfinance.utils.fix_Yahoo_returning_live_separate` (0.2.62, called unconditionally from `scrapers/history.py:392`) for `interval == "1d"` drops the *second-to-last* row and keeps the *last* whenever both fall on the same exchange date. With a complete bar followed by a trailing all-NaN row on that same date, it throws away the real bar and keeps the NaN row; `sources._validate` ([024]) then drops the NaN row, so the whole session is gone and "last valid bar" is the previous day. Reproduced exactly with a synthetic frame (Nov 6 bar, Nov 9 real bar, Nov 9 21:27 ET NaN row). **Unconfirmed:** that Yahoo actually emits that trailing row (raw responses aren't in the logs) and why only after 00:00 UTC; the mechanism matches every logged symptom but the Yahoo side is inference.
+
+**Fix (`pipeline/sources.py`):** `_install_nan_safe_live_merge()` wraps that yfinance function at import so an all-NaN OHLC trailing row is dropped *before* yfinance's merge; everything else is delegated unchanged. Applies to SOXX and the TSM/EWY companion fetches. No-op if the hook is missing; safe if the cause is something else (it can only remove a row that is entirely NaN). Tests S9-S12 run the real yfinance function (suite: 100 passed, 14 skipped).
+
+**Earlier mitigations still apply:** [024] NaN drop, [025] committed-tail restore, [026] validator. A session lost this way self-heals on the next run that gets valid data.
+
+**Side finding (no action):** SOXX did a 3-for-1 split on ~Nov 5 (Nov 4 history row = 450.41/3 = 150.14). The Nov 5 evening run (commits 723e027/c439691) mixed unadjusted history with the split-day price and published ma20 210.92 / rv20 7.31 for ~23h; the next runs got a consistently adjusted history and published normal values (Nov 6: ma20 162.78, rv20 0.68). All historical prices in signals.json/history.csv are now divided by 3 (e.g. Nov 6 close 136.53); documented price levels in prose docs/methodology (~$500-650) are pre-split.
+
+**Not changed:** cron timing. Scheduled runs are starting 3-7h after their nominal time (first daily run each day lands 22:42Z-02:42Z vs a 17:30 ET target), which is why runs kept falling after 00:00 UTC. With the merge fix a late run should no longer lose the session, but the dashboard still updates late evening. `preview.yml` is still effectively dead for the same reason (starts 4.5-7h late, past its 15:59 ET abort).
 
 ---

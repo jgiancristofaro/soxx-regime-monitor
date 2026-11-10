@@ -87,3 +87,53 @@ def test_s7_only_settled_sessions_restored(df_full):
 def test_s8_no_committed_state_is_noop(df_full):
     assert _restore_committed_tail(df_full, None, None).equals(df_full)
     assert _restore_committed_tail(df_full, df_full, None).equals(df_full)
+
+
+# ── yfinance trailing-NaN-row merge (pipeline/sources.py) ───────────────────
+# Regression for 2026-11-09: a trailing all-NaN row on the same exchange date made yfinance's own
+# merge discard the real bar, so the latest session vanished after validation.
+import yfinance.utils as _yfu
+import yfinance.scrapers.history as _yfh
+
+_TZ = "America/New_York"
+
+
+def _quotes(rows):
+    idx = pd.DatetimeIndex([pd.Timestamp(t, tz=_TZ) for t, *_ in rows])
+    data = [r[1:] for r in rows]
+    return pd.DataFrame(
+        data, index=idx,
+        columns=["Open", "High", "Low", "Close", "Volume"],
+    ).assign(**{"Dividends": 0.0, "Stock Splits": 0.0})
+
+
+_GOOD = ("2026-11-09 09:30", 140.0, 142.0, 138.5, 141.2, 50e6)
+_PRIOR = ("2026-11-06 09:30", 139.6, 140.2, 133.8, 136.5, 59e6)
+_NAN = ("2026-11-09 21:27", np.nan, np.nan, np.nan, np.nan, np.nan)
+
+
+def test_s9_patch_installed_where_yfinance_looks_it_up():
+    assert getattr(_yfu.fix_Yahoo_returning_live_separate, "_nan_safe", False)
+    assert _yfh.utils is _yfu
+
+
+def test_s10_trailing_nan_same_date_keeps_real_bar():
+    out, _ = _yfu.fix_Yahoo_returning_live_separate(_quotes([_PRIOR, _GOOD, _NAN]), "1d", _TZ, False)
+    assert out["Close"].iloc[-1] == 141.2
+    assert out.index[-1].date() == pd.Timestamp("2026-11-09").date()
+    assert out["Close"].notna().all()
+
+
+def test_s11_normal_same_date_duplicate_still_merged():
+    live = ("2026-11-09 21:27", 140.0, 142.0, 138.5, 141.2, 50.5e6)
+    out, _ = _yfu.fix_Yahoo_returning_live_separate(_quotes([_PRIOR, _GOOD, live]), "1d", _TZ, False)
+    assert len(out) == 2 and out["Volume"].iloc[-1] == 50.5e6
+
+
+def test_s12_trailing_nan_on_new_date_dropped_and_short_frames_unaffected():
+    nxt = ("2026-11-10 09:30", np.nan, np.nan, np.nan, np.nan, np.nan)
+    out, _ = _yfu.fix_Yahoo_returning_live_separate(_quotes([_PRIOR, _GOOD, nxt]), "1d", _TZ, False)
+    assert len(out) == 2 and out["Close"].iloc[-1] == 141.2   # empty row dropped early; real bar kept
+    single, _ = _yfu.fix_Yahoo_returning_live_separate(_quotes([_NAN]), "1d", _TZ, False)
+    assert len(single) == 1
+

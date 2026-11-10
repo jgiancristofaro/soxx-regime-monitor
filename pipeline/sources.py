@@ -13,6 +13,35 @@ import yfinance as yf
 TICKER = "SOXX"
 
 
+def _install_nan_safe_live_merge() -> None:
+    """Stop yfinance's same-day merge from discarding a good daily bar.
+
+    For 1d data, yfinance.utils.fix_Yahoo_returning_live_separate drops the second-to-last row and
+    keeps the last whenever both fall on the same exchange date. If the trailing row is an
+    all-NaN duplicate, the real bar is lost and _validate then drops the NaN one, so the latest
+    session silently disappears (seen on every run after 00:00 UTC, e.g. 2026-11-09). Dropping an
+    all-NaN trailing row first leaves the real bar for yfinance's own merge. Pinned yfinance
+    0.2.62; a no-op if the hook is missing.
+    """
+    import yfinance.utils as _yfu
+
+    orig = getattr(_yfu, "fix_Yahoo_returning_live_separate", None)
+    if orig is None or getattr(orig, "_nan_safe", False):
+        return
+
+    def _nan_safe(quotes, interval, *args, **kwargs):
+        cols = [c for c in ("Open", "High", "Low", "Close") if c in quotes.columns]
+        if interval == "1d" and len(quotes) > 1 and cols and quotes.iloc[-1][cols].isna().all():
+            quotes = quotes.iloc[:-1]
+        return orig(quotes, interval, *args, **kwargs)
+
+    _nan_safe._nan_safe = True
+    _yfu.fix_Yahoo_returning_live_separate = _nan_safe
+
+
+_install_nan_safe_live_merge()
+
+
 def _validate(df: pd.DataFrame, source: str) -> pd.DataFrame:
     if df.empty:
         raise ValueError(f"{source}: empty result")
