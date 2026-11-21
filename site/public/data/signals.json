@@ -40,7 +40,7 @@
     "vrp": -0.0697,
     "iv30_asof": "2026-11-21",
     "gap_quality": "none",
-    "asia_on20": 0.0023,
+    "asia_on20": null,
     "hollow_count20": 2,
     "id20_pctl120": 0.0,
     "id20_is_sample_low": true,
@@ -3149,7 +3149,7 @@
       -0.0133,
       -0.0168,
       0.0364,
-      0.0023
+      null
     ],
     "id20_pctl120": [
       0.0333,
@@ -3510,6 +3510,6 @@
       "pop": 0.1574
     }
   ],
-  "generated_utc": "2026-11-21T00:59:22Z",
+  "generated_utc": "2026-11-21T01:52:58Z",
   "is_live_candle": false
 }
